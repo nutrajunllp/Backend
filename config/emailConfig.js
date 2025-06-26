@@ -1,11 +1,17 @@
 const nodemailer = require("nodemailer");
 
-const transporter = nodemailer.createTransport({
+module.exports.transporterOTP = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: process.env.EMAIL, 
-    pass: process.env.EMAIL_PASSWORD, 
+    user: "noreply.nutrajun@gmail.com", 
+    pass: "drkb xxmv ipbb fota", 
   },
 });
 
-module.exports = transporter;
+module.exports.transporterORDER = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: "noreply.nutrajun@gmail.com", 
+    pass: "drkb xxmv ipbb fota", 
+  },
+});

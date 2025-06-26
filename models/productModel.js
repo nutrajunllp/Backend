@@ -5,14 +5,13 @@ const productSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String, required: true },
   short_description: { type: String, required: true },
-
+  disclaimer: [{ type: String }],
   category: [
     {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
     },
   ],
-
   // size: [
   //   {
   //     title: { type: String },
@@ -27,14 +26,10 @@ const productSchema = new mongoose.Schema({
   //     },
   //   },
   // ],
-
   url_key: { type: String },
   qty: { type: Number, required: true },
   stock_availability: { type: Number, enum: [0, 1], required: true },
   visibility_home: { type: Number, enum: [0, 1], required: true },
-
-  disclaimer: [{ type: String }],
-
   status: { type: Number, enum: [0, 1], default: 0 },
   sku: { type: String, required: true, unique: true },
   price: {
@@ -43,13 +38,18 @@ const productSchema = new mongoose.Schema({
     discounted_percentage: { type: Number },
     shipping_charge: { type: Number },
   },
-
+  platform_link: {
+    amazon: { type: String },
+    flipkart: { type: String },
+  },
+  inquiry: {
+    enabled: { type: Number, enum: [0, 1], default: 0 },
+  },
   meta: {
     meta_title: { type: String },
     meta_description: { type: String },
     meta_keywords: { type: String },
   },
-
   product_details: {
     diet_type: { type: String },
     flavor: { type: String },
@@ -59,7 +59,6 @@ const productSchema = new mongoose.Schema({
     number_of_piecces: { type: String },
     package_weight: { type: String },
   },
-
   additional_information: {
     generic_name: { type: String },
     weight: { type: String },
@@ -71,28 +70,24 @@ const productSchema = new mongoose.Schema({
     license_no: { type: String },
     customer_care_details: { type: String },
   },
-
   key_benefits: [
     {
       title: { type: String },
       description: { type: String },
     },
   ],
-
   images: [
     {
       name: { type: String },
       num: { type: Number },
     },
   ],
-
   videos: [
     {
       name: { type: String },
       num: { type: Number },
     },
   ],
-
   reviews: [
     {
       user: {
@@ -113,7 +108,6 @@ const productSchema = new mongoose.Schema({
       created_at: { type: Date, default: Date.now },
     },
   ],
-
   payment_detail: {
     free_shipping: { type: Number, enum: [0, 1] },
     cod_available: { type: Number, enum: [0, 1] },

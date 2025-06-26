@@ -194,42 +194,143 @@ module.exports.getAllProducts = async (req, res, next) => {
   }
 };
 
-module.exports.updateImageOrder = async (req, res, next) => {
+module.exports.deleteProductImages = async (req, res, next) => {
   try {
-    const { productId, imageOrder } = req.body;
+    const { productId } = req.params;
+    const { imageNums } = req.body;
 
-    if (!Array.isArray(imageOrder)) {
+    if (!Array.isArray(imageNums) || imageNums.length === 0) {
+      return next(
+        new ErrorHandler("imageNums must be a non-empty array.", StatusCodes.BAD_REQUEST)
+      );
+    }
+
+    const product = await Product.findById(productId).lean();
+    if (!product) {
+      return next(new ErrorHandler("Product not found.", StatusCodes.NOT_FOUND));
+    }
+
+    const remainingImages = product.images.filter(
+      (img) => !imageNums.includes(img.num)
+    );
+
+    const reorderedImages = remainingImages.map((img, index) => ({
+      ...img,
+      num: index + 1,
+    }));
+
+    await Product.updateOne(
+      { _id: productId },
+      { $set: { images: reorderedImages } }
+    );
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Selected images deleted successfully",
+      data: reorderedImages,
+    });
+  } catch (error) {
+    return next(
+      new ErrorHandler(error.message, error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR)
+    );
+  }
+};
+
+module.exports.updateImageNumbers = async (req, res, next) => {
+  try {
+    const { productId } = req.params;
+    const { imageUpdates } = req.body;
+
+    if (!Array.isArray(imageUpdates) || imageUpdates.length === 0) {
+      return next(
+        new ErrorHandler("imageUpdates must be a non-empty array.", StatusCodes.BAD_REQUEST)
+      );
+    }
+
+    const product = await Product.findById(productId).lean(); // Get plain object
+    if (!product) {
+      return next(new ErrorHandler("Product not found.", StatusCodes.NOT_FOUND));
+    }
+
+    const images = product.images || [];
+    const totalImages = images.length;
+
+    // Check: No duplicate newNum values
+    const newNums = imageUpdates.map((img) => img.newNum);
+    const hasDuplicateNums = new Set(newNums).size !== newNums.length;
+    if (hasDuplicateNums) {
+      return next(
+        new ErrorHandler("Image numbers must be unique.", StatusCodes.BAD_REQUEST)
+      );
+    }
+
+    // Check: newNum should not exceed total image count
+    const invalidNewNums = newNums.filter((num) => num > totalImages || num < 1);
+    if (invalidNewNums.length > 0) {
       return next(
         new ErrorHandler(
-          "imageOrder must be an array.",
+          `Invalid new image numbers: ${invalidNewNums.join(
+            ", "
+          )}. Must be between 1 and ${totalImages}.`,
           StatusCodes.BAD_REQUEST
         )
       );
     }
 
-    const product = await Product.findById(productId);
-    if (!product) {
-      return next(
-        new ErrorHandler("Product not found.", StatusCodes.NOT_FOUND)
-      );
-    }
-
-    const updatedImages = imageOrder.map((imgName, idx) => ({
-      name: imgName,
-      num: idx + 1,
-    }));
-
-    product.images = product.images.map((img) => {
-      const found = updatedImages.find((u) => u.name === img.name);
-      return found ? { ...img, num: found.num } : img;
+    // Update the image nums
+    const updatedImages = images.map((img) => {
+      const update = imageUpdates.find((u) => u.currentNum === img.num);
+      return update
+        ? { ...img, num: update.newNum }
+        : img;
     });
 
-    await product.save();
+    await Product.updateOne(
+      { _id: productId },
+      { $set: { images: updatedImages } }
+    );
 
     res.status(StatusCodes.OK).json({
       success: true,
-      message: "Image order updated successfully",
-      data: product.images,
+      message: "Image numbers updated successfully",
+      data: updatedImages,
+    });
+  } catch (error) {
+    return next(
+      new ErrorHandler(
+        error.message,
+        error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR
+      )
+    );
+  }
+};
+
+module.exports.deleteProduct = async (req, res, next) => {
+  try {
+    const { productId } = req.params;
+
+    const product = await Product.findById(productId);
+    if (!product) {
+      return next(new ErrorHandler("Product not found.", StatusCodes.NOT_FOUND));
+    }
+
+    if (Array.isArray(product.category) && product.category.length > 0) {
+      await Promise.all(
+        product.category.map((catId) =>
+          Category.findByIdAndUpdate(
+            catId,
+            { $pull: { products: product._id } },
+            { new: true }
+          )
+        )
+      );
+    }
+
+    await Product.findByIdAndDelete(productId);
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Product deleted successfully",
     });
   } catch (error) {
     return next(

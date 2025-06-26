@@ -22,10 +22,10 @@ router.post("/admin/auth/login", adminAuthController.loginAdmin);
 //Product 
 router.post("/admin/product/create", protectRoute, allowAccess(["admin"]), uploadProductPhotos, adminProductController.createProduct)
 router.get("/admin/product/all", protectRoute, allowAccess(["admin"]),adminProductController.getAllProducts)
-router.get("/admin/product/one/:productId", protectRoute, allowAccess(["admin"]), adminProductController.getProductById)
-router.put("/product/image-order", protectRoute, allowAccess(["admin"]), adminProductController.updateImageOrder);
+router.get("/admin/product/one/:productId", protectRoute, allowAccess(["admin"]), adminProductController.getProductById);
 router.put("/admin/product/edit/:productId", uploadProductPhotos, adminProductController.editProduct)
-
+router.delete("/admin/product/delete-images/:productId", adminProductController.deleteProductImages)
+router.patch("/admin/product/update-image-num/:productId",  adminProductController.updateImageNumbers);
 // router.delete("/admin/product/delete/:productId", protectRoute, allowAccess(["admin"]), adminProductController.deleteProduct)
 // router.delete("/admin/product/deletes", protectRoute, allowAccess(["admin"]), adminProductController.deleteMultipleProducts)
 

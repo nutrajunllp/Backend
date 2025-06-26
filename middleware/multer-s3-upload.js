@@ -6,7 +6,7 @@ const uploadFile = (folderName) => {
   return multer({
     storage: multerS3({
       s3,
-      bucket: "tatva-t3bucket",
+      bucket: "nutrajun",
       acl: "public-read",
       contentType: multerS3.AUTO_CONTENT_TYPE,
       key: function (req, file, cb) {
