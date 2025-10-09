@@ -192,19 +192,19 @@ module.exports.addReviewCustomer = async (req, res, next) => {
       return next(new ErrorHandler("Product not found", StatusCodes.NOT_FOUND));
     }
 
-    const alreadyReviewed = product.reviews.find(
-      (rev) =>
-        rev.user_details.name.toString() === user_detail.name.toString() &&
-        rev.user.toString() === customer_id.toString()
-    );
-    if (alreadyReviewed) {
-      return next(
-        new ErrorHandler(
-          "You already reviewed this product",
-          StatusCodes.BAD_REQUEST
-        )
-      );
-    }
+    // const alreadyReviewed = product.reviews.find(
+    //   (rev) =>
+    //     rev.user_details.name?.toString() === user_detail.name?.toString() &&
+    //     rev.user?.toString() === customer_id?.toString()
+    // );
+    // if (alreadyReviewed) {
+    //   return next(
+    //     new ErrorHandler(
+    //       "You already reviewed this product",
+    //       StatusCodes.BAD_REQUEST
+    //     )
+    //   );
+    // }
 
     const newReview = {
       user: customer_id,

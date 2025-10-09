@@ -235,8 +235,6 @@ module.exports.updateOrderStatus = async (req, res, next) => {
   }
 };
 
-
-
 module.exports.downloadOrderExcel = async (req, res, next) => {
   try {
     const { ids } = req.body;

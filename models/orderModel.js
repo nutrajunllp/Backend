@@ -115,7 +115,7 @@ const orderSchema = new mongoose.Schema(
       is_shipment_confirmed: {
         type: Number,
         enum: [0, 1],
-        default: 0, 
+        default: 0,
       },
     },
     order_status: {
@@ -123,10 +123,14 @@ const orderSchema = new mongoose.Schema(
       enum: ["pending", "processing", "accept", "delivered", "cancelled"],
       default: "pending",
     },
-    label_create : {
+    label_create: {
       type: Number,
       enum: [0, 1, 2],
-      default: 0, 
+      default: 0,
+    },
+    coupen: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Coupon",
     },
     shipping_address: {
       type: {

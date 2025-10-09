@@ -6,14 +6,17 @@ const adminCategoryController = require("../controllers/admin/categoryController
 const adminOrderController = require("../controllers/admin/orderController");
 const adminCustomerController = require("../controllers/admin/userController");
 const adminDashboardController = require("../controllers/admin/dashboardController");
+const adminBlogController = require("../controllers/admin/blogController");
 
-const  uploadFile  = require("../middleware/multer-s3-upload");
 
 const { protectRoute, allowAccess } = require("../middleware/auth");
+const { uploadFile } = require("../middleware/multer-s3-upload");
 
 const uploadProductPhotos = uploadFile("product").array("images");
 const uploadCategoryBanner = uploadFile("category-banner").single("image");
 const uploadOrderPhoto = uploadFile("order-photo").single("image");
+const uploadBlogPhotos = uploadFile("blog-photo").any();
+
 
 //Auth
 router.post("/admin/auth/register", adminAuthController.registerAdmin);
@@ -21,37 +24,44 @@ router.post("/admin/auth/login", adminAuthController.loginAdmin);
 
 //Product 
 router.post("/admin/product/create", protectRoute, allowAccess(["admin"]), uploadProductPhotos, adminProductController.createProduct)
-router.get("/admin/product/all", protectRoute, allowAccess(["admin"]),adminProductController.getAllProducts)
+router.get("/admin/product/all", protectRoute, allowAccess(["admin"]), adminProductController.getAllProducts)
 router.get("/admin/product/one/:productId", protectRoute, allowAccess(["admin"]), adminProductController.getProductById);
 router.put("/admin/product/edit/:productId", uploadProductPhotos, adminProductController.editProduct)
 router.delete("/admin/product/delete-images/:productId", adminProductController.deleteProductImages)
-router.patch("/admin/product/update-image-num/:productId",  adminProductController.updateImageNumbers);
+router.patch("/admin/product/update-image-num/:productId", adminProductController.updateImageNumbers);
 // router.delete("/admin/product/delete/:productId", protectRoute, allowAccess(["admin"]), adminProductController.deleteProduct)
 // router.delete("/admin/product/deletes", protectRoute, allowAccess(["admin"]), adminProductController.deleteMultipleProducts)
 
 //Category
-router.post("/admin/category/create", protectRoute, allowAccess(["admin"]), adminCategoryController.createCategory)
+router.post("/admin/category/create", protectRoute, allowAccess(["admin"]), uploadCategoryBanner, adminCategoryController.createCategory)
 router.get("/admin/category/all", protectRoute, allowAccess(["admin"]), adminCategoryController.getAllCategories)
 router.get("/admin/category/one/:categoryId", protectRoute, allowAccess(["admin"]), adminCategoryController.getCategoryById)
 router.put("/admin/category/edit/:categoryId", protectRoute, allowAccess(["admin"]), adminCategoryController.editCategory)
 router.delete("/admin/category/delete/:categoryId", protectRoute, allowAccess(["admin"]), adminCategoryController.deleteCategory)
 
 //Order
-router.get("/admin/order/all",protectRoute, allowAccess(["admin"]), adminOrderController.getAllOrders);
+router.get("/admin/order/all", protectRoute, allowAccess(["admin"]), adminOrderController.getAllOrders);
 router.get("/admin/order/one/:_id", protectRoute, allowAccess(["admin"]), adminOrderController.getOrderById);
 router.patch("/admin/order/update_status/:_id", protectRoute, allowAccess(["admin"]), adminOrderController.updateOrderStatus);
 router.patch("/admin/order/update_shipment/:_id", protectRoute, allowAccess(["admin"]), adminOrderController.updateShipment);
-router.post("/admin/order/download-excel", protectRoute, allowAccess(["admin"]), adminOrderController.downloadOrderExcel);     
-router.post("/admin/order/generate-labels", adminOrderController.generateShippingLabelPDF);     
+router.post("/admin/order/download-excel", protectRoute, allowAccess(["admin"]), adminOrderController.downloadOrderExcel);
+router.post("/admin/order/generate-labels", adminOrderController.generateShippingLabelPDF);
 
 //customer
-router.get("/admin/customer/all",protectRoute, allowAccess(["admin"]), adminCustomerController.getAllCustomersPaginated);
-router.patch("/admin/customer/update-status/:_id",protectRoute, allowAccess(["admin"]), adminCustomerController.updateCustomerStatus);
+router.get("/admin/customer/all", protectRoute, allowAccess(["admin"]), adminCustomerController.getAllCustomersPaginated);
+router.patch("/admin/customer/update-status/:_id", protectRoute, allowAccess(["admin"]), adminCustomerController.updateCustomerStatus);
 
-// Admin Dashboard
-router.get("/admin/dashboard/summary",protectRoute, allowAccess(["admin"]),  adminDashboardController.getAdminDashboardCounts);
-router.get("/admin/dashboard/chart", protectRoute, allowAccess(["admin"]),  adminDashboardController.getDashboardChart);
+//Admin Dashboard
+router.get("/admin/dashboard/summary", protectRoute, allowAccess(["admin"]), adminDashboardController.getAdminDashboardCounts);
+router.get("/admin/dashboard/chart", protectRoute, allowAccess(["admin"]), adminDashboardController.getDashboardChart);
 router.get("/admin/dashboard/order-summary", protectRoute, allowAccess(["admin"]), adminDashboardController.getOrderSummary);
 router.get("/admin/dashboard/today-orders", protectRoute, allowAccess(["admin"]), adminDashboardController.getTodayOrders);
+
+//Blog
+router.post("/admin/blog/create", protectRoute, allowAccess(["admin"]), uploadBlogPhotos, adminBlogController.createBlog)
+router.get("/admin/blog/all", protectRoute, allowAccess(["admin"]), adminBlogController.getBlogs)
+router.put("/admin/blog/edit/:id", protectRoute, allowAccess(["admin"]), uploadBlogPhotos, adminBlogController.updateBlog)
+router.delete("/admin/blog/delete/:id", protectRoute, allowAccess(["admin"]), adminBlogController.deleteBlog)
+
 
 module.exports = router

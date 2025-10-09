@@ -2,6 +2,7 @@ const { StatusCodes } = require("http-status-codes");
 const ErrorHandler = require("../../middleware/errorHandler");
 const Product = require("../../models/productModel");
 const Category = require("../../models/categoryModel");
+const { deleteFileFromS3 } = require("../../middleware/multer-s3-upload");
 
 module.exports.createProduct = async (req, res, next) => {
   try {
@@ -247,7 +248,7 @@ module.exports.updateImageNumbers = async (req, res, next) => {
       );
     }
 
-    const product = await Product.findById(productId).lean(); // Get plain object
+    const product = await Product.findById(productId).lean(); 
     if (!product) {
       return next(new ErrorHandler("Product not found.", StatusCodes.NOT_FOUND));
     }
@@ -308,10 +309,14 @@ module.exports.updateImageNumbers = async (req, res, next) => {
 module.exports.deleteProduct = async (req, res, next) => {
   try {
     const { productId } = req.params;
-
     const product = await Product.findById(productId);
     if (!product) {
       return next(new ErrorHandler("Product not found.", StatusCodes.NOT_FOUND));
+    }
+
+    if (product.images && product.images.length > 0) {
+      const keys = product.images.map((img) => img.name);
+      await deleteFileFromS3(keys);
     }
 
     if (Array.isArray(product.category) && product.category.length > 0) {
@@ -330,14 +335,11 @@ module.exports.deleteProduct = async (req, res, next) => {
 
     res.status(StatusCodes.OK).json({
       success: true,
-      message: "Product deleted successfully",
+      message: "Product and its images deleted successfully",
     });
   } catch (error) {
     return next(
-      new ErrorHandler(
-        error.message,
-        error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR
-      )
+      new ErrorHandler(error.message, error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR)
     );
   }
 };

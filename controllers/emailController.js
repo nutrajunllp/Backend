@@ -38,6 +38,7 @@ const sendOrderMail = async (to, orderID, items, totalAmount) => {
   `;
 
   await senEmail.OTPEmail(to, `Order Confirmation - ${orderID}`, html);
+  await senEmail.OTPEmail("noreply.nutrajun@gmail.com", `New Order - ${orderID}`, html);
 };
 
 module.exports = { sendCustomEmail, sendOrderMail };

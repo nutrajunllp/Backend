@@ -96,7 +96,7 @@ const productSchema = new mongoose.Schema({
         required: true,
       },
       user_details: {
-        name: { type: String, required: true },
+        name: { type: String },
         email: { type: String },
         mobile_number: { type: String },
       },

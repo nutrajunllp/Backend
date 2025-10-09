@@ -1,6 +1,9 @@
 const multer = require("multer");
 const multerS3 = require("multer-s3");
+const { DeleteObjectsCommand } = require("@aws-sdk/client-s3");
 const s3 = require("../utils/s3");
+const ErrorHandler = require("../middleware/errorHandler");
+const { StatusCodes } = require("http-status-codes");
 
 const uploadFile = (folderName) => {
   return multer({
@@ -24,10 +27,47 @@ const uploadFile = (folderName) => {
       if (allowedMimes.includes(file.mimetype)) {
         cb(null, true);
       } else {
-        cb(new Error("Invalid file type. Only JPEG and PNG allowed."));
+        cb(new ErrorHandler("Invalid file type. Only JPEG and PNG allowed.", StatusCodes.BAD_REQUEST));
       }
     },
   });
 };
 
-module.exports = uploadFile;
+const deleteFileFromS3 = async (fileKeys) => {
+  try {
+    if (!fileKeys || (Array.isArray(fileKeys) && fileKeys.length === 0)) {
+      throw new ErrorHandler("No file keys provided for deletion.", StatusCodes.BAD_REQUEST);
+    }
+
+    const keys = Array.isArray(fileKeys) ? fileKeys : [fileKeys];
+
+    // Extract S3 object keys from URLs
+    const objectsToDelete = keys.map((url) => ({
+      Key: url.split(".amazonaws.com/")[1], // Nutrajun/blog-photo/filename.jpg
+    }));
+
+    if (objectsToDelete.length === 0) return;
+
+    const command = new DeleteObjectsCommand({
+      Bucket: "nutrajun",
+      Delete: {
+        Objects: objectsToDelete,
+        Quiet: false,
+      },
+    });
+
+    await s3.send(command);
+    // console.log("🗑️ Deleted files from S3:", objectsToDelete.map(o => o.Key));
+  } catch (error) {
+    // console.error("Error deleting files from S3:", error.message);
+    throw new ErrorHandler(
+      `Failed to delete files from S3: ${error.message}`,
+      StatusCodes.INTERNAL_SERVER_ERROR
+    );
+  }
+};
+
+module.exports = {
+  uploadFile,
+  deleteFileFromS3,
+};

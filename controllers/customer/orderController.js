@@ -73,12 +73,12 @@ module.exports.placeOrder = async (req, res, next) => {
     });
 
     await order.save();
-    // await sendOrderMail(
-    //   customer_details.email,
-    //   orderID,
-    //   items,
-    //   payment.total_amount
-    // );
+    await sendOrderMail(
+      customer_details.email,
+      orderID,
+      items,
+      payment.total_amount
+    );
 
     res.status(StatusCodes.CREATED).json({
       success: true,

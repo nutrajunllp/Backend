@@ -20,7 +20,6 @@ module.exports.getAdminDashboardCounts = async (req, res, next) => {
       activeProductsCount,
       totalCustomersCount,
     ] = await Promise.all([
-      // All time units sold
       Order.aggregate([
         { $unwind: "$items" },
         { $match: { order_status: { $ne: "cancelled" } } },
@@ -32,7 +31,6 @@ module.exports.getAdminDashboardCounts = async (req, res, next) => {
         },
       ]),
 
-      // Today's units sold
       Order.aggregate([
         {
           $match: {
@@ -49,7 +47,6 @@ module.exports.getAdminDashboardCounts = async (req, res, next) => {
         },
       ]),
 
-      // Today's total sales (pending or accept only)
       Order.aggregate([
         {
           $match: {
@@ -65,12 +62,10 @@ module.exports.getAdminDashboardCounts = async (req, res, next) => {
         },
       ]),
 
-      // Count of new orders
       Order.countDocuments({
         order_status: { $in: ["pending", "processing"] },
       }),
 
-      // Count of active products
       Product.countDocuments({ status: 1 }),
 
       Customer.countDocuments({}),
@@ -121,7 +116,6 @@ module.exports.getDashboardChart = async (req, res, next) => {
     const endDate = new Date(dates[dates.length - 1]);
     endDate.setHours(23, 59, 59, 999);
 
-    // Build aggregation pipeline based on type
     const pipeline = [
       {
         $match: {
@@ -154,14 +148,12 @@ module.exports.getDashboardChart = async (req, res, next) => {
 
     const result = await Order.aggregate(pipeline);
 
-    // Map result to dictionary
     const resultMap = {};
     result.forEach((entry) => {
       const key = new Date(entry.date).toISOString().split("T")[0];
       resultMap[key] = entry.total;
     });
 
-    // Build final chart response
     const chartData = dates.map((date) => {
       const key = date.toISOString().split("T")[0];
       return {
@@ -266,7 +258,6 @@ module.exports.getTodayOrders = async (req, res, next) => {
       .select("_id orderID order_status payment.total_amount customer_details")
       .sort({ createdAt: -1 });
 
-    // Format response if needed
     const formattedOrders = todayOrders.map((order) => ({
       _id: order._id,
       orderId: order.orderID,
