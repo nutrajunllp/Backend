@@ -12,8 +12,6 @@ const couponSchema = new mongoose.Schema(
     percentage: {
       type: Number,
       required: true,
-      min: 0,
-      max: 100,
     },
     status: {
       type: String,
@@ -22,7 +20,6 @@ const couponSchema = new mongoose.Schema(
     },
     note: {
       type: String,
-      default: "",
     },
     expiryDate: {
       type: Date,
@@ -37,6 +34,10 @@ const couponSchema = new mongoose.Schema(
         ref: "Order",
       },
     ],
+    usageCount: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

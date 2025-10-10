@@ -7,6 +7,7 @@ const adminOrderController = require("../controllers/admin/orderController");
 const adminCustomerController = require("../controllers/admin/userController");
 const adminDashboardController = require("../controllers/admin/dashboardController");
 const adminBlogController = require("../controllers/admin/blogController");
+const adminCouponController = require("../controllers/admin/couponController");
 
 
 const { protectRoute, allowAccess } = require("../middleware/auth");
@@ -63,5 +64,9 @@ router.get("/admin/blog/all", protectRoute, allowAccess(["admin"]), adminBlogCon
 router.put("/admin/blog/edit/:id", protectRoute, allowAccess(["admin"]), uploadBlogPhotos, adminBlogController.updateBlog)
 router.delete("/admin/blog/delete/:id", protectRoute, allowAccess(["admin"]), adminBlogController.deleteBlog)
 
+//Coupon
+router.post("/admin/coupon/create", protectRoute, allowAccess(["admin"]), adminCouponController.createCoupon)
+router.get("/admin/coupon/all", protectRoute, allowAccess(["admin"]), adminCouponController.getAllCoupons)
+router.get("/admin/coupon/one/:id", protectRoute, allowAccess(["admin"]), adminCouponController.getCouponById)
 
 module.exports = router

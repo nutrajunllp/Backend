@@ -6,12 +6,13 @@ const razorpay = require("../../utils/razorpayClient");
 const crypto = require("crypto");
 const Product = require("../../models/productModel");
 const { sendOrderMail } = require("../emailController");
+const CouponModel = require("../../models/couponModel");
 
 module.exports.placeOrder = async (req, res, next) => {
   try {
-    const { customer, items, shipping_address, customer_details, payment } =
+    const { customer, items, shipping_address, customer_details, payment,coupon_id } =
       req.body;
-
+      
     if (
       !customer ||
       !items?.length ||
@@ -29,7 +30,7 @@ module.exports.placeOrder = async (req, res, next) => {
 
     const orderID = await generateOrderID();
 
-    const razorpayOrder = await razorpay.orders.create({
+    const razorpayOrder = razorpay.orders.create({
       amount: payment.total_amount * 100,
       currency: "INR",
       receipt: orderID,
@@ -59,12 +60,13 @@ module.exports.placeOrder = async (req, res, next) => {
       orderID,
       items,
       shipping_address,
+      coupon_id,
       payment: {
         ...payment,
         payment_status: "Pending",
         payment_details: {
           razorpay_order_id: razorpayOrder.id,
-          amount: razorpayOrder.amount / 100,
+          amount: razorpayOrder.amount,
           currency: razorpayOrder.currency,
           status: razorpayOrder.status,
         },
@@ -73,6 +75,16 @@ module.exports.placeOrder = async (req, res, next) => {
     });
 
     await order.save();
+
+    if (order.coupon_id) {
+      const coupon = await CouponModel.findById(coupon_id);
+      if (coupon) {
+        coupon.orderIds.push(order._id);
+        coupon.usageCount += 1;
+        await coupon.save();
+      }
+    }
+
     await sendOrderMail(
       customer_details.email,
       orderID,
@@ -294,5 +306,55 @@ module.exports.getCustomerOrderById = async (req, res, next) => {
     return next(
       new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR)
     );
+  }
+};
+
+module.exports.validateCoupon = async (req, res, next) => {
+  try {
+    const { code } = req.body;
+
+    if (!code) {
+      return next(new ErrorHandler("Coupon code is required", StatusCodes.BAD_REQUEST));
+    }
+
+    const coupon = await CouponModel.findOne({ code: code.toUpperCase() });
+
+    if (!coupon) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        success: false,
+        message: "Invalid coupon code",
+      });
+    }
+
+    if (coupon.status !== "active") {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Coupon is inactive",
+      });
+    }
+
+    if (!coupon.noExpiry && coupon.expiryDate) {
+      const now = new Date();
+      if (now > coupon.expiryDate) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Coupon has expired",
+        });
+      }
+    }
+
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Coupon is valid",
+      data: {
+        code: coupon.code,
+        discountPercentage: coupon.percentage,
+        note: coupon.note,
+        expiryDate: coupon.noExpiry ? null : coupon.expiryDate,
+        noExpiry: coupon.noExpiry,
+      },
+    });
+  } catch (error) {
+    return next(new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };

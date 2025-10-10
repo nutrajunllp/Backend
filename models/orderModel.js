@@ -128,7 +128,7 @@ const orderSchema = new mongoose.Schema(
       enum: [0, 1, 2],
       default: 0,
     },
-    coupen: {
+    coupon_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Coupon",
     },
@@ -171,5 +171,4 @@ const orderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const Order = mongoose.model("Order", orderSchema);
-module.exports = Order;
+module.exports = mongoose.model("Order", orderSchema);
