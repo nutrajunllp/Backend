@@ -61,7 +61,9 @@ router.get("/admin/dashboard/today-orders", protectRoute, allowAccess(["admin"])
 //Blog
 router.post("/admin/blog/create", protectRoute, allowAccess(["admin"]), uploadBlogPhotos, adminBlogController.createBlog)
 router.get("/admin/blog/all", protectRoute, allowAccess(["admin"]), adminBlogController.getBlogs)
+router.get("/admin/blog/one/:id", protectRoute, allowAccess(["admin"]), adminBlogController.getBlog)
 router.put("/admin/blog/edit/:id", protectRoute, allowAccess(["admin"]), uploadBlogPhotos, adminBlogController.updateBlog)
+
 router.delete("/admin/blog/delete/:id", protectRoute, allowAccess(["admin"]), adminBlogController.deleteBlog)
 
 //Coupon
