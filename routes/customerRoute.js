@@ -10,6 +10,7 @@ const cartController = require("../controllers/customer/cartController");
 const orderController = require("../controllers/customer/orderController");
 const paymentController = require("../controllers/paymentController");
 const Order = require("../models/orderModel");
+const { createContact } = require("../controllers/admin/contactController");
 
 
 // Register OTP routes
@@ -22,14 +23,14 @@ router.post("/customer/auth/login/verify-otp", customerAuthController.verifyLogi
 router.post("/customer/auth/check-customer", customerAuthController.checkCustomerByEmail);
 
 // profile
-router.get("/customer/get/:id", protectRoute,allowAccess(["customer"]), customerController.getCustomerData);
-router.put("/customer/update/:id",protectRoute, allowAccess(["customer"]), customerController.updateCustomerData);
-router.get("/customer/profile-status/:id",protectRoute, allowAccess(["customer"]), customerController.checkProfileCompletion);
+router.get("/customer/get/:id", protectRoute, allowAccess(["customer"]), customerController.getCustomerData);
+router.put("/customer/update/:id", protectRoute, allowAccess(["customer"]), customerController.updateCustomerData);
+router.get("/customer/profile-status/:id", protectRoute, allowAccess(["customer"]), customerController.checkProfileCompletion);
 
 //Product 
 router.get("/customer/product/home", customerProductController.getProductsCustomerHome)
 router.get("/customer/product/all", customerProductController.getAllProductsCustomer)
-router.get("/customer/product/one/:id",customerProductController.getSingleProductCustomer)
+router.get("/customer/product/one/:id", customerProductController.getSingleProductCustomer)
 
 //Category
 router.get("/customer/category/all", customerCategoryController.getAllCategories)
@@ -55,6 +56,8 @@ router.post("/customer/coupon/validate", protectRoute, allowAccess(["customer"])
 
 router.get("/payment/status/:payment_id", paymentController.checkPaymentStatus);
 
+router.get("/blog", customerController.getBlogs)
+router.post("/contact/sent", createContact);
 
 router.get("/order/invoice/:orderId", async (req, res) => {
   const orderId = req.params.orderId;
@@ -64,7 +67,7 @@ router.get("/order/invoice/:orderId", async (req, res) => {
     if (err) {
       return res.status(500).json({ message: "Error generating invoice." });
     }
-    res.download(filePath); 
+    res.download(filePath);
   });
 });
 

@@ -6,24 +6,26 @@ const { deleteFileFromS3 } = require("../../middleware/multer-s3-upload");
 
 module.exports.createProduct = async (req, res, next) => {
   try {
-    if (!req.files || req.files.length === 0) {
+    const { main_image, images, videos } = req.files || {};
+
+    if (!main_image || main_image.length === 0) {
       return next(
         new ErrorHandler(
-          "At least one image is required.",
+          "Main image is required.",
           StatusCodes.BAD_REQUEST
         )
       );
     }
 
-    if (req.files && req.files.length > 0) {
-      images = req.files.map((file, index) => ({
-        name: file.location,
-        num: index + 1,
-      }));
-    }
+    const mainImageUrl = main_image[0].location;
+    const imageUrls = images ? images.map((file) => file.location) : [];
+    const videoUrls = videos ? videos.map((file) => file.location) : [];
+
     const newProduct = new Product({
       ...req.body,
-      images,
+      main_image: mainImageUrl,
+      images: imageUrls,
+      videos: videoUrls,
     });
 
     await newProduct.save();
@@ -61,24 +63,39 @@ module.exports.editProduct = async (req, res, next) => {
 
     let product = await Product.findById(productId);
     if (!product) {
-      return next(new ErrorHandler("Product not found.", StatusCodes.NOT_FOUND));
+      return next(
+        new ErrorHandler("Product not found.", StatusCodes.NOT_FOUND)
+      );
     }
 
+    const { main_image, images, videos } = req.files || {};
+
+    let mainImage = product.main_image;
     let updatedImages = [...product.images];
+    let updatedVideos = [...product.videos];
 
-    if (req.files && req.files.length > 0) {
-      const startNum = updatedImages.length + 1;
+    if (main_image && main_image.length > 0) {
+      if (product.main_image) {
+        await deleteFileFromS3(product.main_image);
+      }
+      mainImage = main_image[0].location;
+    }
 
-      const newImages = req.files.map((file, index) => ({
-        name: file.location,
-        num: startNum + index,
-      }));
+    if (images && images.length > 0) {
+      if (product.images && product.images.length > 0) {
+        await deleteFileFromS3(product.images);
+      }
+      updatedImages = images.map((file) => file.location);
+    }
 
-      updatedImages = [...updatedImages, ...newImages];
+    if (videos && videos.length > 0) {
+      if (product.videos && product.videos.length > 0) {
+        await deleteFileFromS3(product.videos);
+      }
+      updatedVideos = videos.map((file) => file.location);
     }
 
     const newCategoryIds = req.body.category || [];
-
     const newCategoryArray = Array.isArray(newCategoryIds)
       ? newCategoryIds
       : [newCategoryIds];
@@ -114,13 +131,17 @@ module.exports.editProduct = async (req, res, next) => {
 
     const updatedData = {
       ...req.body,
+      main_image: mainImage,
       images: updatedImages,
+      videos: updatedVideos,
       category: newCategoryArray,
     };
 
-    const updatedProduct = await Product.findByIdAndUpdate(productId, updatedData, {
-      new: true,
-    });
+    const updatedProduct = await Product.findByIdAndUpdate(
+      productId,
+      updatedData,
+      { new: true }
+    );
 
     res.status(StatusCodes.OK).json({
       success: true,
@@ -128,8 +149,12 @@ module.exports.editProduct = async (req, res, next) => {
       data: updatedProduct,
     });
   } catch (error) {
+    console.error("Error updating product:", error);
     return next(
-      new ErrorHandler(error.message, error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR)
+      new ErrorHandler(
+        error.message,
+        error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR
+      )
     );
   }
 };
@@ -198,103 +223,42 @@ module.exports.getAllProducts = async (req, res, next) => {
 module.exports.deleteProductImages = async (req, res, next) => {
   try {
     const { productId } = req.params;
-    const { imageNums } = req.body;
+    const { imageLinks } = req.body;
 
-    if (!Array.isArray(imageNums) || imageNums.length === 0) {
+    if (!productId) {
       return next(
-        new ErrorHandler("imageNums must be a non-empty array.", StatusCodes.BAD_REQUEST)
+        new ErrorHandler("Product ID is required.", StatusCodes.BAD_REQUEST)
       );
     }
 
-    const product = await Product.findById(productId).lean();
-    if (!product) {
-      return next(new ErrorHandler("Product not found.", StatusCodes.NOT_FOUND));
-    }
-
-    const remainingImages = product.images.filter(
-      (img) => !imageNums.includes(img.num)
-    );
-
-    const reorderedImages = remainingImages.map((img, index) => ({
-      ...img,
-      num: index + 1,
-    }));
-
-    await Product.updateOne(
-      { _id: productId },
-      { $set: { images: reorderedImages } }
-    );
-
-    res.status(StatusCodes.OK).json({
-      success: true,
-      message: "Selected images deleted successfully",
-      data: reorderedImages,
-    });
-  } catch (error) {
-    return next(
-      new ErrorHandler(error.message, error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR)
-    );
-  }
-};
-
-module.exports.updateImageNumbers = async (req, res, next) => {
-  try {
-    const { productId } = req.params;
-    const { imageUpdates } = req.body;
-
-    if (!Array.isArray(imageUpdates) || imageUpdates.length === 0) {
-      return next(
-        new ErrorHandler("imageUpdates must be a non-empty array.", StatusCodes.BAD_REQUEST)
-      );
-    }
-
-    const product = await Product.findById(productId).lean(); 
-    if (!product) {
-      return next(new ErrorHandler("Product not found.", StatusCodes.NOT_FOUND));
-    }
-
-    const images = product.images || [];
-    const totalImages = images.length;
-
-    // Check: No duplicate newNum values
-    const newNums = imageUpdates.map((img) => img.newNum);
-    const hasDuplicateNums = new Set(newNums).size !== newNums.length;
-    if (hasDuplicateNums) {
-      return next(
-        new ErrorHandler("Image numbers must be unique.", StatusCodes.BAD_REQUEST)
-      );
-    }
-
-    // Check: newNum should not exceed total image count
-    const invalidNewNums = newNums.filter((num) => num > totalImages || num < 1);
-    if (invalidNewNums.length > 0) {
+    if (!Array.isArray(imageLinks) || imageLinks.length === 0) {
       return next(
         new ErrorHandler(
-          `Invalid new image numbers: ${invalidNewNums.join(
-            ", "
-          )}. Must be between 1 and ${totalImages}.`,
+          "imageLinks must be a non-empty array of image URLs.",
           StatusCodes.BAD_REQUEST
         )
       );
     }
 
-    // Update the image nums
-    const updatedImages = images.map((img) => {
-      const update = imageUpdates.find((u) => u.currentNum === img.num);
-      return update
-        ? { ...img, num: update.newNum }
-        : img;
-    });
+    const product = await Product.findById(productId);
+    if (!product) {
+      return next(new ErrorHandler("Product not found.", StatusCodes.NOT_FOUND));
+    }
 
-    await Product.updateOne(
-      { _id: productId },
-      { $set: { images: updatedImages } }
+    // ✅ Delete from S3
+    await deleteFileFromS3(imageLinks);
+
+    // ✅ Remove image links from product
+    const updatedImages = product.images.filter(
+      (img) => !imageLinks.includes(img)
     );
+
+    product.images = updatedImages;
+    await product.save();
 
     res.status(StatusCodes.OK).json({
       success: true,
-      message: "Image numbers updated successfully",
-      data: updatedImages,
+      message: "Selected image(s) deleted successfully from S3 and product.",
     });
   } catch (error) {
     return next(

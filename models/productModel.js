@@ -26,12 +26,33 @@ const productSchema = new mongoose.Schema({
   //     },
   //   },
   // ],
-  url_key: { type: String },
-  qty: { type: Number, required: true },
-  stock_availability: { type: Number, enum: [0, 1], required: true },
-  visibility_home: { type: Number, enum: [0, 1], required: true },
-  status: { type: Number, enum: [0, 1], default: 0 },
-  sku: { type: String, required: true, unique: true },
+  url_key: {
+    type: String
+  },
+  qty: {
+    type: Number,
+    required: true
+  },
+  stock_availability: {
+    type: Number,
+    enum: [0, 1],
+    required: true
+  },
+  visibility_home: {
+    type: Number,
+    enum: [0, 1],
+    required: true
+  },
+  status: {
+    type: Number,
+    enum: [0, 1],
+    default: 0
+  },
+  sku: {
+    type: String,
+    required: true,
+    unique: true
+  },
   price: {
     website_price: { type: Number, required: true },
     product_price: { type: Number, required: true },
@@ -76,16 +97,15 @@ const productSchema = new mongoose.Schema({
       description: { type: String },
     },
   ],
+  main_image: {
+    type: String
+  },
   images: [
-    {
-      name: { type: String },
-      num: { type: Number },
-    },
+    { type: String }
   ],
   videos: [
     {
-      name: { type: String },
-      num: { type: Number },
+      type: String
     },
   ],
   reviews: [

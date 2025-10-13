@@ -8,12 +8,19 @@ const adminCustomerController = require("../controllers/admin/userController");
 const adminDashboardController = require("../controllers/admin/dashboardController");
 const adminBlogController = require("../controllers/admin/blogController");
 const adminCouponController = require("../controllers/admin/couponController");
+const adminContactUsController = require("../controllers/admin/contactController");
 
 
 const { protectRoute, allowAccess } = require("../middleware/auth");
 const { uploadFile } = require("../middleware/multer-s3-upload");
 
 const uploadProductPhotos = uploadFile("product").array("images");
+const uploadProductFiles = uploadFile("products").fields([
+  { name: "main_image", maxCount: 1 },
+  { name: "images", maxCount: 10 },
+  { name: "videos", maxCount: 3 },
+]);
+
 const uploadCategoryBanner = uploadFile("category-banner").single("image");
 const uploadOrderPhoto = uploadFile("order-photo").single("image");
 const uploadBlogPhotos = uploadFile("blog-photo").any();
@@ -24,12 +31,11 @@ router.post("/admin/auth/register", adminAuthController.registerAdmin);
 router.post("/admin/auth/login", adminAuthController.loginAdmin);
 
 //Product 
-router.post("/admin/product/create", protectRoute, allowAccess(["admin"]), uploadProductPhotos, adminProductController.createProduct)
+router.post("/admin/product/create", protectRoute, allowAccess(["admin"]), uploadProductFiles, adminProductController.createProduct)
 router.get("/admin/product/all", protectRoute, allowAccess(["admin"]), adminProductController.getAllProducts)
 router.get("/admin/product/one/:productId", protectRoute, allowAccess(["admin"]), adminProductController.getProductById);
-router.put("/admin/product/edit/:productId", uploadProductPhotos, adminProductController.editProduct)
-router.delete("/admin/product/delete-images/:productId", adminProductController.deleteProductImages)
-router.patch("/admin/product/update-image-num/:productId", adminProductController.updateImageNumbers);
+router.put("/admin/product/edit/:productId", protectRoute, allowAccess(["admin"]), uploadProductFiles, adminProductController.editProduct)
+router.delete("/admin/product/delete-images/:productId", protectRoute, allowAccess(["admin"]), adminProductController.deleteProductImages)
 // router.delete("/admin/product/delete/:productId", protectRoute, allowAccess(["admin"]), adminProductController.deleteProduct)
 // router.delete("/admin/product/deletes", protectRoute, allowAccess(["admin"]), adminProductController.deleteMultipleProducts)
 
@@ -63,12 +69,17 @@ router.post("/admin/blog/create", protectRoute, allowAccess(["admin"]), uploadBl
 router.get("/admin/blog/all", protectRoute, allowAccess(["admin"]), adminBlogController.getBlogs)
 router.get("/admin/blog/one/:id", protectRoute, allowAccess(["admin"]), adminBlogController.getBlog)
 router.put("/admin/blog/edit/:id", protectRoute, allowAccess(["admin"]), uploadBlogPhotos, adminBlogController.updateBlog)
-
 router.delete("/admin/blog/delete/:id", protectRoute, allowAccess(["admin"]), adminBlogController.deleteBlog)
 
 //Coupon
 router.post("/admin/coupon/create", protectRoute, allowAccess(["admin"]), adminCouponController.createCoupon)
 router.get("/admin/coupon/all", protectRoute, allowAccess(["admin"]), adminCouponController.getAllCoupons)
 router.get("/admin/coupon/one/:id", protectRoute, allowAccess(["admin"]), adminCouponController.getCouponById)
+router.get("/admin/coupon/update/:id", protectRoute, allowAccess(["admin"]), adminCouponController.updateCoupon)
+
+// contact Us
+router.get("/admin/contact/all", protectRoute, allowAccess(["admin"]), adminContactUsController.getAllContacts);
+router.get("/admin/contact/one/:contactId", protectRoute, allowAccess(["admin"]), adminContactUsController.getSingleContact);
+router.delete("/admin/contact/delete", protectRoute, allowAccess(["admin"]), adminContactUsController.deleteMultipleContacts);
 
 module.exports = router

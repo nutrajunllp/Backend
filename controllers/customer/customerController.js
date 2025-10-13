@@ -1,6 +1,7 @@
 const { StatusCodes } = require("http-status-codes");
 const ErrorHandler = require("../../middleware/errorHandler");
 const Customer = require("../../models/customerModel");
+const blogModel = require("../../models/blogModel");
 
 // Get customer data by ID
 module.exports.getCustomerData = async (req, res, next) => {
@@ -70,5 +71,19 @@ module.exports.checkProfileCompletion = async (req, res, next) => {
     });
   } catch (error) {
     return next(new ErrorHandler(error.message, error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR));
+  }
+};
+
+module.exports.getBlogs = async (req, res, next) => {
+  try {
+    const blogs = await blogModel.find({ status: "published" }).sort({ createdAt: -1 });
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      count: blogs.length,
+      data: blogs,
+    });
+  } catch (error) {
+    return next(new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };

@@ -10,9 +10,9 @@ const CouponModel = require("../../models/couponModel");
 
 module.exports.placeOrder = async (req, res, next) => {
   try {
-    const { customer, items, shipping_address, customer_details, payment,coupon_id } =
+    const { customer, items, shipping_address, customer_details, payment, coupon_id } =
       req.body;
-      
+
     if (
       !customer ||
       !items?.length ||
@@ -352,6 +352,7 @@ module.exports.validateCoupon = async (req, res, next) => {
         note: coupon.note,
         expiryDate: coupon.noExpiry ? null : coupon.expiryDate,
         noExpiry: coupon.noExpiry,
+        _id: coupon._id
       },
     });
   } catch (error) {
