@@ -9,7 +9,7 @@ const adminDashboardController = require("../controllers/admin/dashboardControll
 const adminBlogController = require("../controllers/admin/blogController");
 const adminCouponController = require("../controllers/admin/couponController");
 const adminContactUsController = require("../controllers/admin/contactController");
-
+const galleryController = require("../controllers/admin/galleryController");
 
 const { protectRoute, allowAccess } = require("../middleware/auth");
 const { uploadFile } = require("../middleware/multer-s3-upload");
@@ -25,6 +25,7 @@ const uploadCategoryBanner = uploadFile("category-banner").single("image");
 const uploadOrderPhoto = uploadFile("order-photo").single("image");
 const uploadBlogPhotos = uploadFile("blog-photo").any();
 
+const uploadGalleryImage = uploadFile("gallery").single("image");
 
 //Auth
 router.post("/admin/auth/register", adminAuthController.registerAdmin);
@@ -81,5 +82,10 @@ router.get("/admin/coupon/update/:id", protectRoute, allowAccess(["admin"]), adm
 router.get("/admin/contact/all", protectRoute, allowAccess(["admin"]), adminContactUsController.getAllContacts);
 router.get("/admin/contact/one/:contactId", protectRoute, allowAccess(["admin"]), adminContactUsController.getSingleContact);
 router.delete("/admin/contact/delete", protectRoute, allowAccess(["admin"]), adminContactUsController.deleteMultipleContacts);
+
+//Gallery
+router.post("/admin/gallery/create", protectRoute, allowAccess(["admin"]), uploadGalleryImage, galleryController.createGalleryImage);
+router.get("/admin/gallery", protectRoute, allowAccess(["admin"]), galleryController.getAllGalleryImages);
+router.delete("/admin/gallery/delete/:id", protectRoute, allowAccess(["admin"]), galleryController.deleteGalleryImage);
 
 module.exports = router

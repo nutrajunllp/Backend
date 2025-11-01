@@ -11,6 +11,7 @@ const orderController = require("../controllers/customer/orderController");
 const paymentController = require("../controllers/paymentController");
 const Order = require("../models/orderModel");
 const { createContact } = require("../controllers/admin/contactController");
+const { getAllGalleryMainWeb } = require("../controllers/admin/galleryController");
 
 
 // Register OTP routes
@@ -58,6 +59,7 @@ router.get("/payment/status/:payment_id", paymentController.checkPaymentStatus);
 
 router.get("/blog", customerController.getBlogs)
 router.post("/contact/sent", createContact);
+router.get("/gallery", getAllGalleryMainWeb);
 
 router.get("/order/invoice/:orderId", async (req, res) => {
   const orderId = req.params.orderId;

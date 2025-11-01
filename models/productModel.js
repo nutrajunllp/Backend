@@ -64,7 +64,7 @@ const productSchema = new mongoose.Schema({
     flipkart: { type: String },
   },
   inquiry: {
-    enabled: { type: Number, enum: [0, 1], default: 0 },
+    type: Number, enum: [0, 1], default: 0
   },
   meta: {
     meta_title: { type: String },
