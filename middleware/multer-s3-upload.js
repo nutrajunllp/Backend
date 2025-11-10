@@ -17,6 +17,9 @@ const uploadFile = (folderName) => {
         cb(null, `Nutrajun/${folderName}/${fileName}`);
       },
     }),
+    // ✅ No size limit — unlimited upload size
+    limits: {},
+
     fileFilter: (req, file, cb) => {
       const allowedMimes = [
         "image/jpeg",
@@ -27,7 +30,12 @@ const uploadFile = (folderName) => {
       if (allowedMimes.includes(file.mimetype)) {
         cb(null, true);
       } else {
-        cb(new ErrorHandler("Invalid file type. Only JPEG and PNG allowed.", StatusCodes.BAD_REQUEST));
+        cb(
+          new ErrorHandler(
+            "Invalid file type. Only JPEG, PNG, MP4, and MOV allowed.",
+            StatusCodes.BAD_REQUEST
+          )
+        );
       }
     },
   });
@@ -36,14 +44,17 @@ const uploadFile = (folderName) => {
 const deleteFileFromS3 = async (fileKeys) => {
   try {
     if (!fileKeys || (Array.isArray(fileKeys) && fileKeys.length === 0)) {
-      throw new ErrorHandler("No file keys provided for deletion.", StatusCodes.BAD_REQUEST);
+      throw new ErrorHandler(
+        "No file keys provided for deletion.",
+        StatusCodes.BAD_REQUEST
+      );
     }
 
     const keys = Array.isArray(fileKeys) ? fileKeys : [fileKeys];
 
     // Extract S3 object keys from URLs
     const objectsToDelete = keys.map((url) => ({
-      Key: url.split(".amazonaws.com/")[1], // Nutrajun/blog-photo/filename.jpg
+      Key: url.split(".amazonaws.com/")[1],
     }));
 
     if (objectsToDelete.length === 0) return;
@@ -57,9 +68,7 @@ const deleteFileFromS3 = async (fileKeys) => {
     });
 
     await s3.send(command);
-    // console.log("🗑️ Deleted files from S3:", objectsToDelete.map(o => o.Key));
   } catch (error) {
-    // console.error("Error deleting files from S3:", error.message);
     throw new ErrorHandler(
       `Failed to delete files from S3: ${error.message}`,
       StatusCodes.INTERNAL_SERVER_ERROR

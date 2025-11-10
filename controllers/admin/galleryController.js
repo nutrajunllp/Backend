@@ -79,3 +79,35 @@ exports.deleteGalleryImage = async (req, res, next) => {
     next(new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };
+
+exports.editGalleryImage = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { caption, status } = req.body;
+
+    const image = await Gallery.findById(id);
+    if (!image) {
+      return next(new ErrorHandler("Image not found", StatusCodes.NOT_FOUND));
+    }
+
+    // If a new image is uploaded, delete the old one from S3
+    if (req.file && image.image_url) {
+      await deleteFileFromS3(image.image_url);
+      image.image_url = req.file.location; // update new image URL
+    }
+
+    // Update other fields
+    if (caption !== undefined) image.caption = caption;
+    if (status !== undefined) image.status = status;
+
+    await image.save();
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Gallery image updated successfully.",
+      data: image,
+    });
+  } catch (error) {
+    next(new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
+  }
+};

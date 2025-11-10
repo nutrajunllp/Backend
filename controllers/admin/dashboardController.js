@@ -3,6 +3,7 @@ const Order = require("../../models/orderModel");
 const Product = require("../../models/productModel");
 const ErrorHandler = require("../../middleware/errorHandler");
 const Customer = require("../../models/customerModel");
+const couponModel = require("../../models/couponModel");
 
 module.exports.getAdminDashboardCounts = async (req, res, next) => {
   try {
@@ -273,5 +274,57 @@ module.exports.getTodayOrders = async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+};
+
+module.exports.getAllCouponsAnalytics = async (req, res, next) => {
+  try {
+    const coupons = await couponModel.find().lean();
+
+    if (!coupons.length) {
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "No coupons found.",
+        data: [],
+      });
+    }
+
+    // Get all orders that used any coupon
+    const orders = await Order.find({ couponId: { $exists: true, $ne: null } })
+      .select("coupon_id payment.total_amount status")
+      .lean();
+
+    // Group orders by couponId
+    const analytics = coupons.map((coupon) => {
+      const couponOrders = orders.filter(
+        (order) => order.coupon_id?.toString() === coupon._id.toString()
+      );
+
+      const totalOrders = couponOrders.length;
+      const totalRevenue = couponOrders.reduce(
+        (sum, order) => sum + (order.payment.total_amount || 0),
+        0
+      );
+
+      return {
+        _id: coupon._id,
+        code: coupon.code,
+        percentage: coupon.percentage,
+        status: coupon.status,
+        expiryDate: coupon.expiryDate,
+        noExpiry: coupon.noExpiry,
+        usageCount: coupon.usageCount,
+        totalOrders,
+        totalRevenue,
+      };
+    });
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      totalCoupons: analytics.length,
+      data: analytics,
+    });
+  } catch (error) {
+    next(new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };

@@ -64,6 +64,7 @@ router.get("/admin/dashboard/summary", protectRoute, allowAccess(["admin"]), adm
 router.get("/admin/dashboard/chart", protectRoute, allowAccess(["admin"]), adminDashboardController.getDashboardChart);
 router.get("/admin/dashboard/order-summary", protectRoute, allowAccess(["admin"]), adminDashboardController.getOrderSummary);
 router.get("/admin/dashboard/today-orders", protectRoute, allowAccess(["admin"]), adminDashboardController.getTodayOrders);
+router.get("/admin/dashboard/coupon-orders", adminDashboardController.getAllCouponsAnalytics);
 
 //Blog
 router.post("/admin/blog/create", protectRoute, allowAccess(["admin"]), uploadBlogPhotos, adminBlogController.createBlog)
@@ -75,6 +76,7 @@ router.delete("/admin/blog/delete/:id", protectRoute, allowAccess(["admin"]), ad
 //Coupon
 router.post("/admin/coupon/create", protectRoute, allowAccess(["admin"]), adminCouponController.createCoupon)
 router.get("/admin/coupon/all", protectRoute, allowAccess(["admin"]), adminCouponController.getAllCoupons)
+router.get("/admin/coupon/analytics/:id", adminCouponController.getCouponAnalyticsById)
 router.get("/admin/coupon/one/:id", protectRoute, allowAccess(["admin"]), adminCouponController.getCouponById)
 router.get("/admin/coupon/update/:id", protectRoute, allowAccess(["admin"]), adminCouponController.updateCoupon)
 
@@ -87,5 +89,6 @@ router.delete("/admin/contact/delete", protectRoute, allowAccess(["admin"]), adm
 router.post("/admin/gallery/create", protectRoute, allowAccess(["admin"]), uploadGalleryImage, galleryController.createGalleryImage);
 router.get("/admin/gallery", protectRoute, allowAccess(["admin"]), galleryController.getAllGalleryImages);
 router.delete("/admin/gallery/delete/:id", protectRoute, allowAccess(["admin"]), galleryController.deleteGalleryImage);
+router.put("/admin/gallery/edit/:id", protectRoute, allowAccess(["admin"]), uploadGalleryImage, galleryController.editGalleryImage);
 
 module.exports = router

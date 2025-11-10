@@ -14,7 +14,7 @@ const errorMiddleware = require("./errors/error");
 const app = express();
 const server = http.createServer(app);
 
-// ==================== 🔐 SECURITY MIDDLEWARE ====================
+// ==================== 🛡 SECURITY MIDDLEWARE ====================
 
 // Add HTTP security headers
 app.use(helmet());
@@ -31,10 +31,10 @@ app.use(hpp());
 // Enable Gzip compression to reduce data size
 app.use(compression());
 
-// CORS setup (restrict if needed)
+// CORS setup (configure your frontend origin in production)
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || "*", // Set your frontend domain in production
+    origin: process.env.CORS_ORIGIN || "*",
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
@@ -61,8 +61,9 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 // ==================== ⚙️ CORE MIDDLEWARE ====================
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+// ✅ Allow large uploads (images/videos)
+app.use(express.json({ limit: "500mb" }));
+app.use(express.urlencoded({ extended: true, limit: "500mb" }));
 
 // Default headers for all routes
 app.use((req, res, next) => {
@@ -108,9 +109,7 @@ process.on("uncaughtException", (err) => {
 process.on("unhandledRejection", (err) => {
   console.error("UNHANDLED REJECTION 💥 Shutting down...");
   console.error(err.name, err.message);
-  server.close(() => {
-    process.exit(1);
-  });
+  server.close(() => process.exit(1));
 });
 
 process.on("SIGTERM", () => {
