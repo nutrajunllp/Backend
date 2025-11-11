@@ -58,6 +58,7 @@ router.post("/customer/coupon/validate", protectRoute, allowAccess(["customer"])
 router.get("/payment/status/:payment_id", paymentController.checkPaymentStatus);
 
 router.get("/blog", customerController.getBlogs)
+router.get("/blog/:id", customerController.getBlog)
 router.post("/contact/sent", createContact);
 router.get("/gallery", getAllGalleryMainWeb);
 

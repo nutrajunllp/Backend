@@ -10,27 +10,31 @@ const CouponModel = require("../../models/couponModel");
 
 module.exports.placeOrder = async (req, res, next) => {
   try {
-    const { customer, items, shipping_address, customer_details, payment, coupon_id } =
-      req.body;
+    const { customer, items, shipping_address, customer_details, payment, coupon_id } = req.body;
 
-    if (
-      !customer ||
-      !items?.length ||
-      !shipping_address ||
-      !customer_details ||
-      !payment
-    ) {
-      return next(
-        new ErrorHandler(
-          "All order fields are required",
-          StatusCodes.BAD_REQUEST
-        )
-      );
+    if (!customer || !items?.length || !shipping_address || !customer_details || !payment) {
+      return next(new ErrorHandler("All order fields are required", StatusCodes.BAD_REQUEST));
+    }
+
+    for (const item of items) {
+      const product = await Product.findById(item.product);
+
+      if (!product) {
+        return next(new ErrorHandler(`Product not found: ${item.product}`, StatusCodes.NOT_FOUND));
+      }
+
+      if (product.qty <= 0) {
+        return next(new ErrorHandler(`Product "${product.name}" is out of stock.`, StatusCodes.BAD_REQUEST));
+      }
+
+      if (product.qty < item.quantity) {
+        return next(new ErrorHandler(`Insufficient stock for "${product.name}". Only ${product.qty} left.`, StatusCodes.BAD_REQUEST));
+      }
     }
 
     const orderID = await generateOrderID();
 
-    const razorpayOrder = razorpay.orders.create({
+    const razorpayOrder = await razorpay.orders.create({
       amount: payment.total_amount * 100,
       currency: "INR",
       receipt: orderID,
@@ -52,24 +56,23 @@ module.exports.placeOrder = async (req, res, next) => {
 
     const order = new Order({
       customer,
-      customer_details: {
-        name: customer_details.name,
-        email: customer_details.email,
-        phone: customer_details.phone,
-      },
+      customer_details,
       orderID,
       items,
       shipping_address,
       coupon_id,
       payment: {
-        ...payment,
+        product_total: payment.product_total,
+        shipping_charge: payment.shipping_charge || 0,
+        total_amount: payment.total_amount,
         payment_status: "Pending",
         payment_details: {
           razorpay_order_id: razorpayOrder.id,
-          amount: razorpayOrder.amount,
+          amount: razorpayOrder.amount / 100,
           currency: razorpayOrder.currency,
           status: razorpayOrder.status,
         },
+        payment_method: "Pending",
       },
       order_status: "pending",
     });
@@ -85,26 +88,21 @@ module.exports.placeOrder = async (req, res, next) => {
       }
     }
 
-    await sendOrderMail(
-      customer_details.email,
-      orderID,
-      items,
-      payment.total_amount
-    );
+    await sendOrderMail(customer_details.email, orderID, items, payment.total_amount);
 
     res.status(StatusCodes.CREATED).json({
       success: true,
       message: "Order placed. Use Razorpay Checkout to complete payment.",
       data: {
         razorpay_order_id: razorpayOrder.id,
-        amount: razorpayOrder.amount,
+        amount: razorpayOrder.amount / 100,
         currency: razorpayOrder.currency,
         customer_details,
         order,
       },
     });
   } catch (error) {
-    return next(new ErrorHandler(error, StatusCodes.INTERNAL_SERVER_ERROR));
+    return next(new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };
 

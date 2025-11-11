@@ -1,4 +1,3 @@
-const htmlPdf = require("html-pdf");
 const { StatusCodes } = require("http-status-codes");
 const exceljs = require("exceljs");
 const ErrorHandler = require("../../middleware/errorHandler");
@@ -310,88 +309,5 @@ module.exports.downloadOrderExcel = async (req, res, next) => {
         error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR
       )
     );
-  }
-};
-
-const generateLabelHTML = (order, barcodeBase64) => {
-  const { _id, orderID, customer_details, shipping_address, shipment } = order;
-
-  return `
-    <div style="width: 4in; height: 6in; padding: 20px; font-family: Arial, sans-serif; border: 1px solid #000;">
-      <h2 style="text-align:center; margin: 0;">NutraJun LLP</h2>
-      <p style="text-align:center; margin: 0;">
-        51, 3rd Floor, Harirambapa Society,<br/>
-        Surat, Gujarat 395006<br/>
-        contact@nutrajun.com
-      </p>
-      <hr/>
-      <p><strong>Order ID:</strong> ${orderID || _id}</p>
-      <p><strong>Weight:</strong> ${shipment?.weight || 'N/A'} KG</p>
-      <p><strong>To:</strong><br/>
-        ${customer_details?.name || 'N/A'}<br/>
-        ${customer_details?.phone || ''}<br/>
-        ${shipping_address?.address_line || ''}, ${shipping_address?.city || ''},<br/>
-        ${shipping_address?.state || ''} - ${shipping_address?.pincode || ''}
-      </p>
-      <div style="text-align:center; margin-top: 20px;">
-        <img src="${barcodeBase64}" width="200" height="50"/>
-      </div>
-    </div>
-  `;
-};
-
-
-module.exports.generateShippingLabelPDF = async (req, res, next) => {
-  try {
-    const { orderIds } = req.body;
-    if (!Array.isArray(orderIds) || orderIds.length === 0) {
-      return res.status(400).json({ success: false, message: "orderIds must be a non-empty array" });
-    }
-
-    const orders = await Order.find({ _id: { $in: orderIds } }).lean();
-    if (!orders.length) {
-      return res.status(404).json({ success: false, message: "No orders found" });
-    }
-
-    // Generate HTML with barcode
-    const htmlParts = [];
-    for (const order of orders) {
-      const barcode = await generateBarcodeBase64(order._id.toString());
-      htmlParts.push(generateLabelHTML(order, barcode));
-    }
-
-    const fullHTML = `
-      <html>
-      <head>
-        <style>
-          @page { size: 4in 6in; margin: 0; }
-        </style>
-      </head>
-      <body>
-        ${htmlParts.join('<div style="page-break-after: always;"></div>')}
-      </body>
-      </html>
-    `;
-
-    const options = {
-      width: "4in",
-      height: "6in",
-      border: "0",
-      type: "pdf",
-      orientation: "portrait",
-    };
-
-    // Generate PDF buffer
-    htmlPdf.create(fullHTML, options).toBuffer((err, buffer) => {
-      if (err) return next(err);
-
-      // ✅ Force browser/Postman to treat it as a downloadable PDF
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", 'attachment; filename="shipping-label.pdf"');
-      res.send(buffer);
-    });
-  } catch (error) {
-    console.error("PDF Generation Failed:", error);
-    res.status(500).json({ success: false, message: error.message || "Server error" });
   }
 };

@@ -31,12 +31,24 @@ const productSchema = new mongoose.Schema({
   },
   qty: {
     type: Number,
-    required: true
+    required: true,
+    min: [0, "Quantity cannot be less than 0"],
+    validate: {
+      validator: function (v) {
+        if (v === 0 && this.stock_availability !== 0) {
+          this.stock_availability = 0;
+        } else if (v > 0 && this.stock_availability === 0) {
+          this.stock_availability = 1;
+        }
+        return true;
+      },
+    },
   },
   stock_availability: {
     type: Number,
     enum: [0, 1],
-    required: true
+    required: true,
+    default: 1, // ✅ default in stock
   },
   visibility_home: {
     type: Number,

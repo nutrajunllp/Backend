@@ -6,7 +6,7 @@ exports.createContact = async (req, res, next) => {
   try {
     const { first_name, last_name, email, number, subject, message } = req.body;
 
-    if (!first_name || !last_name || !email || !number || !subject || !message) {
+    if (!first_name || !last_name || !email || !subject || !message) {
       return next(
         new ErrorHandler("All fields are required.", StatusCodes.BAD_REQUEST)
       );

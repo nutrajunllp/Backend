@@ -87,3 +87,22 @@ module.exports.getBlogs = async (req, res, next) => {
     return next(new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };
+
+module.exports.getBlog = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const blog = await blogModel.findById(id);
+
+    if (!blog) {
+      return next(new ErrorHandler("Blog not found", StatusCodes.NOT_FOUND));
+    }
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: blog,
+    });
+  } catch (error) {
+    return next(new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
+  }
+};
