@@ -4,58 +4,59 @@ const Product = require("../../models/productModel");
 const Category = require("../../models/categoryModel");
 const { deleteFileFromS3 } = require("../../middleware/multer-s3-upload");
 
+function parseNestedForm(body) {
+  const parsed = {};
+
+  for (const key in body) {
+    const value = body[key];
+
+    if (key.includes("[")) {
+      const [base, rest] = key.split("[");
+      const index = parseInt(rest.split("]")[0]);
+      const subKey = rest.split("].")[1];
+
+      if (!parsed[base]) parsed[base] = [];
+      if (!parsed[base][index]) parsed[base][index] = {};
+
+      parsed[base][index][subKey] = value.trim();
+    } else {
+      parsed[key] = value;
+    }
+  }
+
+  return parsed;
+}
+
 module.exports.createProduct = async (req, res, next) => {
   try {
     const { main_image, images, videos } = req.files || {};
 
     if (!main_image || main_image.length === 0) {
-      return next(
-        new ErrorHandler(
-          "Main image is required.",
-          StatusCodes.BAD_REQUEST
-        )
-      );
+      return next(new ErrorHandler("Main image is required.", StatusCodes.BAD_REQUEST));
     }
 
-    const mainImageUrl = main_image[0].location;
-    const imageUrls = images ? images.map((file) => file.location) : [];
-    const videoUrls = videos ? videos.map((file) => file.location) : [];
+    const parsedBody = parseNestedForm(req.body);
 
     const newProduct = new Product({
-      ...req.body,
-      main_image: mainImageUrl,
-      images: imageUrls,
-      videos: videoUrls,
+      ...parsedBody,
+      main_image: main_image[0].location,
+      images: images ? images.map((f) => f.location) : [],
+      videos: videos ? videos.map((f) => f.location) : [],
     });
 
     await newProduct.save();
-
-    if (newProduct.category && Array.isArray(newProduct.category)) {
-      await Promise.all(
-        newProduct.category.map((catId) =>
-          Category.findByIdAndUpdate(
-            catId,
-            { $push: { products: newProduct._id } },
-            { new: true }
-          )
-        )
-      );
-    }
 
     res.status(StatusCodes.CREATED).json({
       success: true,
       message: "Product created successfully",
       data: newProduct,
     });
+
   } catch (error) {
-    return next(
-      new ErrorHandler(
-        error.message,
-        error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR
-      )
-    );
+    return next(new ErrorHandler(error.message, error.statusCode || 500));
   }
 };
+
 
 module.exports.editProduct = async (req, res, next) => {
   try {

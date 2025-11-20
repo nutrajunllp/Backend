@@ -153,6 +153,7 @@ const productSchema = new mongoose.Schema({
 //   product.reviews = product.reviews?.filter((rev) => rev.visible === 1);
 //   return product;
 // };
+module.exports = mongoose.model("Product", productSchema);
 
-const Product = mongoose.model("Product", productSchema);
-module.exports = Product;
+// const Product = mongoose.model("Product", productSchema);
+// module.exports = Product;
