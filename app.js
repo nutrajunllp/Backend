@@ -19,16 +19,12 @@ const server = http.createServer(app);
 // Add HTTP security headers
 app.use(helmet());
 
-// Prevent NoSQL injection
 app.use(mongoSanitize());
 
-// Prevent XSS (Cross-Site Scripting)
 app.use(xss());
 
-// Prevent parameter pollution
 app.use(hpp());
 
-// Enable Gzip compression to reduce data size
 app.use(compression());
 
 // CORS setup (configure your frontend origin in production)

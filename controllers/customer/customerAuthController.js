@@ -5,26 +5,26 @@ const { generateToken } = require("../../utils/tokenGenerator");
 const Coustomer = require("../../models/customerModel");
 const OTP = require("../../models/OTP");
 const sendEmail = require("../../utils/sendMail");
-const verifyOTP = require("../../utils/verifyOTP");
+const { verifyOTP, sendOTP } = require("../../utils/verifyOTP");
 const otpTemplate = require("../../view/otpTemplate");
 
 // Generate and send OTP
-const sendOTP = async (email, type, next) => {
-  try {
-    const otp = crypto.randomInt(100000, 999999).toString();
-    await OTP.findOneAndUpdate(
-      { email, type },
-      { otp, expires_at: new Date(Date.now() + 5 * 60 * 1000), type },
-      { upsert: true }
-    );
+// const sendOTP = async (email, type, next) => {
+//   try {
+//     const otp = crypto.randomInt(100000, 999999).toString();
+//     await OTP.findOneAndUpdate(
+//       { email, type },
+//       { otp, expires_at: new Date(Date.now() + 5 * 60 * 1000), type },
+//       { upsert: true }
+//     );
 
-    const subject = "Your OTP Code";
-    const message = otpTemplate(otp);
-    await sendEmail.OTPEmail(email, subject, message);
-  } catch (error) {
-    throw new Error(error);
-  }
-};
+//     const subject = "Your OTP Code";
+//     const message = otpTemplate(otp);
+//     await sendEmail.OTPEmail(email, subject, message);
+//   } catch (error) {
+//     throw new Error(error);
+//   }
+// };
 
 // Register OTP
 module.exports.sendRegisterOTP = async (req, res, next) => {

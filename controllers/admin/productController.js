@@ -195,7 +195,10 @@ module.exports.getAllProducts = async (req, res, next) => {
     const filter = req.query.category ? { category: req.query.category } : {};
 
     const [products, totalProductsCount] = await Promise.all([
-      Product.find(filter).skip(skip).limit(perPage),
+      Product.find(filter)
+        .sort({ createdAt: -1 })  
+        .skip(skip)
+        .limit(perPage),
       Product.countDocuments(filter),
     ]);
 
@@ -280,9 +283,13 @@ module.exports.deleteProduct = async (req, res, next) => {
     }
 
     if (product.images && product.images.length > 0) {
-      const keys = product.images.map((img) => img.name);
+      const keys = product.images
+        .map((img) => img?.name)
+        .filter((url) => typeof url === "string");
+
       await deleteFileFromS3(keys);
     }
+
 
     if (Array.isArray(product.category) && product.category.length > 0) {
       await Promise.all(

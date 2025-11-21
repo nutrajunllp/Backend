@@ -122,21 +122,22 @@ module.exports.getCouponAnalyticsById = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    // Fetch coupon
     const coupon = await Coupon.findById(id).lean();
     if (!coupon) {
       return next(new ErrorHandler("Coupon not found", StatusCodes.NOT_FOUND));
     }
 
-    // Fetch all orders linked with this coupon
-    const orders = await orderModel.find({ coupon_id: id })
-      .populate("customer", "name email phone")
-      .lean();
+    const orders = await orderModel.find({
+      coupon_id: id,
+      "payment.payment_status": "Paid"  // include only PAID orders
+    })
+    .populate("customer", "name email phone")
+    .lean();
 
     if (!orders.length) {
       return res.status(StatusCodes.OK).json({
         success: true,
-        message: "No orders found for this coupon.",
+        message: "No paid orders found for this coupon.",
         data: {
           code: coupon.code,
           percentage: coupon.percentage,
@@ -148,12 +149,14 @@ module.exports.getCouponAnalyticsById = async (req, res, next) => {
       });
     }
 
-    // Calculate total revenue and build detailed order list
     let totalRevenue = 0;
 
     const orderDetails = orders.map((order) => {
-      const paidAmount = order.payment?.payment_details?.amount || 0;
-      const totalQty = order.items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
+      const paidAmount = order.payment?.total_amount || 0;
+      const totalQty = order.items?.reduce(
+        (sum, item) => sum + (item.quantity || 0),
+        0
+      ) || 0;
 
       totalRevenue += paidAmount;
 
@@ -172,7 +175,6 @@ module.exports.getCouponAnalyticsById = async (req, res, next) => {
       };
     });
 
-    // Response
     res.status(StatusCodes.OK).json({
       success: true,
       data: {

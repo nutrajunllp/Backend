@@ -12,20 +12,6 @@ const productSchema = new mongoose.Schema({
       ref: "Category",
     },
   ],
-  // size: [
-  //   {
-  //     title: { type: String },
-  //     package_weight: { type: String },
-  //     selected: { type: Number, enum: [0, 1], default: 0 },
-  //     qty: { type: String },
-  //     number_of_piecces: { type: Number },
-  //     price: {
-  //       website_price: { type: String },
-  //       discounted_price: { type: String },
-  //       per_kg_price: { type: String },
-  //     },
-  //   },
-  // ],
   url_key: {
     type: String
   },
@@ -48,7 +34,7 @@ const productSchema = new mongoose.Schema({
     type: Number,
     enum: [0, 1],
     required: true,
-    default: 1, // ✅ default in stock
+    default: 1,
   },
   visibility_home: {
     type: Number,
@@ -109,6 +95,12 @@ const productSchema = new mongoose.Schema({
       description: { type: String },
     },
   ],
+  product_description: [
+    {
+      title: { type: String },
+      description: { type: String },
+    },
+  ],
   main_image: {
     type: String
   },
@@ -122,18 +114,12 @@ const productSchema = new mongoose.Schema({
   ],
   reviews: [
     {
-      user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        required: true,
-      },
-      user_details: {
-        name: { type: String },
+      user_detail: {
+        name: { type: String, required: true },
         email: { type: String },
         mobile_number: { type: String },
       },
       rating: { type: Number, min: 1, max: 5, required: true },
-      order_id: { type: mongoose.Schema.Types.ObjectId, ref: "Order" },
       comment: { type: String, required: true },
       image: { type: String },
       visible: { type: Number, enum: [0, 1], default: 1 },

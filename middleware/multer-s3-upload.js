@@ -43,31 +43,25 @@ const uploadFile = (folderName) => {
 
 const deleteFileFromS3 = async (fileKeys) => {
   try {
-    if (!fileKeys || (Array.isArray(fileKeys) && fileKeys.length === 0)) {
-      throw new ErrorHandler(
-        "No file keys provided for deletion.",
-        StatusCodes.BAD_REQUEST
-      );
-    }
+    if (!fileKeys) return;
 
     const keys = Array.isArray(fileKeys) ? fileKeys : [fileKeys];
 
-    // Extract S3 object keys from URLs
-    const objectsToDelete = keys.map((url) => ({
-      Key: url.split(".amazonaws.com/")[1],
-    }));
+    const objectsToDelete = keys
+      .filter((url) => typeof url === "string" && url.includes(".amazonaws.com/"))
+      .map((url) => ({
+        Key: url.split(".amazonaws.com/")[1],
+      }));
 
     if (objectsToDelete.length === 0) return;
 
     const command = new DeleteObjectsCommand({
       Bucket: "nutrajun",
-      Delete: {
-        Objects: objectsToDelete,
-        Quiet: false,
-      },
+      Delete: { Objects: objectsToDelete },
     });
 
     await s3.send(command);
+
   } catch (error) {
     throw new ErrorHandler(
       `Failed to delete files from S3: ${error.message}`,

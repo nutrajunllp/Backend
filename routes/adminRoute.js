@@ -33,7 +33,7 @@ const uploadBlogPhotos = uploadFile("blog-photo").any();
 const uploadGalleryImage = uploadFile("gallery").single("image");
 
 //Auth
-router.post("/admin/auth/register", adminAuthController.registerAdmin);
+router.post("/admin/auth/send-otp", adminAuthController.sendAdminLoginOTP);
 router.post("/admin/auth/login", adminAuthController.loginAdmin);
 
 //Product 
@@ -42,7 +42,7 @@ router.get("/admin/product/all", protectRoute, allowAccess(["admin"]), adminProd
 router.get("/admin/product/one/:productId", protectRoute, allowAccess(["admin"]), adminProductController.getProductById);
 router.put("/admin/product/edit/:productId", protectRoute, allowAccess(["admin"]), uploadProductFiles, adminProductController.editProduct)
 router.delete("/admin/product/delete-images/:productId", protectRoute, allowAccess(["admin"]), adminProductController.deleteProductImages)
-// router.delete("/admin/product/delete/:productId", protectRoute, allowAccess(["admin"]), adminProductController.deleteProduct)
+router.delete("/admin/product/delete/:productId", protectRoute, allowAccess(["admin"]), adminProductController.deleteProduct)
 // router.delete("/admin/product/deletes", protectRoute, allowAccess(["admin"]), adminProductController.deleteMultipleProducts)
 
 //Category

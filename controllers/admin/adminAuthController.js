@@ -3,56 +3,68 @@ const bcrypt = require("bcryptjs");
 const ErrorHandler = require("../../middleware/errorHandler");
 const { generateToken } = require("../../utils/tokenGenerator");
 const Admin = require("../../models/adminModel");
+const OTP = require("../../models/OTP");
+const { sendOTP } = require("../../utils/verifyOTP");
 
-module.exports.registerAdmin = async (req, res, next) => {
+module.exports.sendAdminLoginOTP = async (req, res, next) => {
   try {
-    const { email, name, password } = req.body;
-    if (!email || !name || !password) {
-      return next(new ErrorHandler("All fields are required", StatusCodes.BAD_REQUEST));
-    }
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const { email } = req.body;
 
-    let existingAdmin = await Admin.findOne({ email });
-    if (existingAdmin) {
-      return next(new ErrorHandler("Email already registered", StatusCodes.BAD_REQUEST));
-    }
+    if (!email)
+      return next(new ErrorHandler("Email is required", StatusCodes.BAD_REQUEST));
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newAdmin = new Admin({ email, name, password: hashedPassword });
-    await newAdmin.save();
+    if (email !== adminEmail)
+      return next(new ErrorHandler("Unauthorized email", StatusCodes.UNAUTHORIZED));
 
-    res.status(StatusCodes.CREATED).json({
+    await sendOTP(email, "admin");
+
+    res.status(StatusCodes.OK).json({
       success: true,
-      message: "Admin registered successfully",
+      message: "OTP sent to admin email",
     });
+
   } catch (error) {
-    return next(new ErrorHandler(error.message || "Server error", StatusCodes.INTERNAL_SERVER_ERROR));
+    return next(new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };
 
 module.exports.loginAdmin = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return next(new ErrorHandler("Email and password are required", StatusCodes.BAD_REQUEST));
-    }
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const { email, otp } = req.body;
 
-    const admin = await Admin.findOne({ email });
+    if (!email || !otp)
+      return next(new ErrorHandler("Email and OTP are required", StatusCodes.BAD_REQUEST));
+
+    if (email !== adminEmail)
+      return next(new ErrorHandler("Unauthorized email", StatusCodes.UNAUTHORIZED));
+
+    const otpRecord = await OTP.findOne({ email, type: "admin" });
+    if (!otpRecord)
+      return next(new ErrorHandler("OTP not found", StatusCodes.NOT_FOUND));
+
+    if (otpRecord.expires_at < Date.now())
+      return next(new ErrorHandler("OTP expired", StatusCodes.BAD_REQUEST));
+
+    if (otpRecord.otp !== otp)
+      return next(new ErrorHandler("Invalid OTP", StatusCodes.BAD_REQUEST));
+
+    await OTP.deleteOne({ _id: otpRecord._id });
+
+    let admin = await Admin.findOne({ email });
     if (!admin) {
-      return next(new ErrorHandler("Invalid credentials", StatusCodes.UNAUTHORIZED));
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, admin.password);
-    if (!isPasswordValid) {
-      return next(new ErrorHandler("Invalid credentials", StatusCodes.UNAUTHORIZED));
+      admin = await Admin.create({ email });
     }
 
     const token = generateToken(admin);
 
     res.status(StatusCodes.OK).json({
       success: true,
-      message: "Login successful",
+      message: "Admin login successful",
       token,
     });
+
   } catch (error) {
     return next(new ErrorHandler(error.message || "Server error", StatusCodes.INTERNAL_SERVER_ERROR));
   }

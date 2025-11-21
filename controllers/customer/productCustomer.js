@@ -8,7 +8,7 @@ const Customer = require("../../models/customerModel");
 module.exports.getProductsCustomerHome = async (req, res, next) => {
   try {
     const visibilityFilter = req.query.visibility_home || 1;
-    const products = await Product.find({ visibility_home: visibilityFilter });
+    const products = await Product.find({ visibility_home: visibilityFilter }).sort({ createdAt: -1 });
 
     return res.status(StatusCodes.OK).json({
       code: StatusCodes.OK,
@@ -129,7 +129,7 @@ module.exports.getAllProductsCustomer = async (req, res, next) => {
     const skip = (parseInt(page) - 1) * parseInt(perPage);
 
     const [products, totalCount] = await Promise.all([
-      Product.find(filter).skip(skip).limit(parseInt(perPage)),
+      Product.find(filter).skip(skip).limit(parseInt(perPage)).sort({ createdAt: -1 }),
       Product.countDocuments(filter),
     ]);
 
@@ -159,13 +159,12 @@ module.exports.getAllProductsCustomer = async (req, res, next) => {
 module.exports.addReviewCustomer = async (req, res, next) => {
   try {
     const { productId } = req.params;
-    const { customer_id, rating, comment, image, user_detail, order_id } =
-      req.body;
+    const { rating, comment, image, user_detail } = req.body;
 
-    if (!customer_id || !rating || !comment || !user_detail) {
+    if (!rating || !comment || !user_detail) {
       return next(
         new ErrorHandler(
-          "Customer ID, rating and comment are required",
+          "Name and Rating and Comment are required",
           StatusCodes.BAD_REQUEST
         )
       );
@@ -180,34 +179,25 @@ module.exports.addReviewCustomer = async (req, res, next) => {
       );
     }
 
-    const customer = await Customer.findById(customer_id);
-    if (!customer) {
-      return next(
-        new ErrorHandler("Invalid customer ID", StatusCodes.BAD_REQUEST)
-      );
-    }
-
     const product = await Product.findById(productId);
     if (!product) {
       return next(new ErrorHandler("Product not found", StatusCodes.NOT_FOUND));
     }
 
-    // const alreadyReviewed = product.reviews.find(
-    //   (rev) =>
-    //     rev.user_details.name?.toString() === user_detail.name?.toString() &&
-    //     rev.user?.toString() === customer_id?.toString()
-    // );
-    // if (alreadyReviewed) {
-    //   return next(
-    //     new ErrorHandler(
-    //       "You already reviewed this product",
-    //       StatusCodes.BAD_REQUEST
-    //     )
-    //   );
-    // }
+    const alreadyReviewed = product.reviews.find(
+      (rev) =>
+        rev.user_detail.name?.toString() === user_detail.name?.toString()
+    );
+    if (alreadyReviewed) {
+      return next(
+        new ErrorHandler(
+          "You already reviewed this product",
+          StatusCodes.BAD_REQUEST
+        )
+      );
+    }
 
     const newReview = {
-      user: customer_id,
       rating,
       comment,
       user_detail,
@@ -221,7 +211,6 @@ module.exports.addReviewCustomer = async (req, res, next) => {
     res.status(StatusCodes.OK).json({
       success: true,
       message: "Review added successfully",
-      review: newReview,
     });
   } catch (error) {
     return next(

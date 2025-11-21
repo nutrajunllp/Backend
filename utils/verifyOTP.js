@@ -1,6 +1,9 @@
 const OTP = require("../models/OTP");
+const crypto = require("crypto");
 const ErrorHandler = require("../middleware/errorHandler");
 const { StatusCodes } = require("http-status-codes");
+const otpTemplate = require("../view/otpTemplate");
+const sendEmail = require("./sendMail");
 
 /**
  * @desc Common OTP Verification Function
@@ -29,4 +32,21 @@ const verifyOTP = async (email, otp, type) => {
   return true;
 };
 
-module.exports = verifyOTP;
+const sendOTP = async (email, type, next) => {
+  try {
+    const otp = crypto.randomInt(100000, 999999).toString();
+    await OTP.findOneAndUpdate(
+      { email, type },
+      { otp, expires_at: new Date(Date.now() + 5 * 60 * 1000), type },
+      { upsert: true }
+    );
+
+    const subject = "Your OTP Code";
+    const message = otpTemplate(otp);
+    await sendEmail.OTPEmail(email, subject, message);
+  } catch (error) {
+    throw new Error(error);
+  }
+};
+
+module.exports = { verifyOTP, sendOTP };

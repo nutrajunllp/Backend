@@ -290,8 +290,11 @@ module.exports.getAllCouponsAnalytics = async (req, res, next) => {
     }
 
     // Get all orders that used any coupon
-    const orders = await Order.find({ couponId: { $exists: true, $ne: null } })
-      .select("coupon_id payment.total_amount status")
+    const orders = await Order.find({
+      coupon_id: { $exists: true, $ne: null },
+      "payment.payment_status": "Paid",
+    })
+      .select("coupon_id payment.total_amount")
       .lean();
 
     // Group orders by couponId
