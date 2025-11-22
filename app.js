@@ -27,6 +27,9 @@ app.use(hpp());
 
 app.use(compression());
 
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 // CORS setup (configure your frontend origin in production)
 app.use(
   cors({
