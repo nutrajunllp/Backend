@@ -58,8 +58,6 @@ if (process.env.NODE_ENV !== "production") {
 
 // ==================== ⚙️ CORE MIDDLEWARE ====================
 // ✅ Allow large uploads (images/videos)
-app.use(express.json({ limit: "500mb" }));
-app.use(express.urlencoded({ extended: true, limit: "500mb" }));
 
 // Default headers for all routes
 app.use((req, res, next) => {
