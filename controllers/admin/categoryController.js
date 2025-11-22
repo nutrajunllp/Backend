@@ -4,15 +4,13 @@ const Category = require("../../models/categoryModel");
 
 module.exports.createCategory = async (req, res, next) => {
   try {
-    if (!req.file) {
-      throw new ErrorHandler("image is required.", StatusCodes.BAD_REQUEST);
+    const categoryData = { ...req.body };
+    
+    if (req.file) {
+      categoryData.image = req.file.location;
     }
-    const image = req.file.location;
 
-    const newCategory = new Category({
-      ...req.body,
-      image,
-    });
+    const newCategory = new Category(categoryData);
 
     await newCategory.save();
 
