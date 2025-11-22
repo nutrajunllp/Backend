@@ -79,7 +79,7 @@ exports.getCart = async (req, res, next) => {
 
     const cart = await Cart.findOne({ customer_id }).populate({
       path: "items.product",
-      select: "name title short_description price images",
+      select: "name title short_description price images main_image",
     });
 
     if (!cart || cart.items.length === 0) {
