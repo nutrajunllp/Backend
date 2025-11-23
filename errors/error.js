@@ -18,6 +18,19 @@ module.exports = (err, req, res, next) => {
       break;
   }
 
+  // Handle Multer file upload errors
+  if (err.code === "LIMIT_FILE_SIZE") {
+    err = new ErrorHandler("File size too large. Maximum file size is 10MB.", 400);
+  }
+  
+  if (err.code === "LIMIT_FILE_COUNT") {
+    err = new ErrorHandler("Too many files. Maximum 20 files allowed.", 400);
+  }
+  
+  if (err.code === "LIMIT_UNEXPECTED_FILE") {
+    err = new ErrorHandler("Unexpected file field.", 400);
+  }
+
   if (err.code === 11000 && err.message.includes("dup key")) {
     const match = err.message.match(/index: (\w+)_\d+ dup key: { (\w+): "([^"]+)" }/);
     const key = match ? match[2] : "Unknown";

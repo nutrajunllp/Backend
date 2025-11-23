@@ -17,8 +17,11 @@ const uploadFile = (folderName) => {
         cb(null, `Nutrajun/${folderName}/${fileName}`);
       },
     }),
-    // ✅ No size limit — unlimited upload size
-    limits: {},
+    // ✅ Increased file size limits for images and videos
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB per file
+      files: 20, // Maximum 20 files
+    },
 
     fileFilter: (req, file, cb) => {
       const allowedMimes = [
