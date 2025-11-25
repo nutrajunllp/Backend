@@ -28,8 +28,8 @@ app.use(hpp());
 app.use(compression());
 
 // Increase body parser limits for large file uploads
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // CORS setup (configure your frontend origin in production)
 app.use(
