@@ -134,12 +134,4 @@ const productSchema = new mongoose.Schema({
   updated_at: { type: Date, default: Date.now },
 });
 
-// productSchema.methods.toJSON = function () {
-//   const product = this.toObject();
-//   product.reviews = product.reviews?.filter((rev) => rev.visible === 1);
-//   return product;
-// };
 module.exports = mongoose.model("Product", productSchema);
-
-// const Product = mongoose.model("Product", productSchema);
-// module.exports = Product;

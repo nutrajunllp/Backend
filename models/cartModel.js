@@ -17,7 +17,7 @@ const cartSchema = new mongoose.Schema({
         package_weight: { type: String },
         number_of_piecces: { type: String },
       },
-      price:{
+      price: {
         item_price: { type: Number },
         total_price: { type: Number },
       },

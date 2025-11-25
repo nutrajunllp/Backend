@@ -40,6 +40,12 @@ const orderSchema = new mongoose.Schema(
         sku: {
           type: String,
         },
+        name: {
+          type: String,
+        },
+        image_url: {
+          type: String,
+        },
         size: {
           package_weight: { type: String },
           number_of_piecces: { type: String },
@@ -64,6 +70,14 @@ const orderSchema = new mongoose.Schema(
         type: Number,
         default: 0,
       },
+      discount_amount: {
+        type: Number,
+        default: 0,
+      },
+      coupon_discount_amount: {
+        type: Number,
+        default: 0,
+      },
       total_amount: {
         type: Number,
         required: true,
@@ -75,7 +89,7 @@ const orderSchema = new mongoose.Schema(
         razorpay_signature: { type: String },
         transaction_id: { type: String },
         payment_method: { type: String },
-        amount: { type: Number },
+        razorpay_amount: { type: Number },
         bank_reference: { type: String },
         payment_channel: { type: String },
         payment_time: { type: Date },

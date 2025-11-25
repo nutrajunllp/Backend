@@ -1,143 +1,136 @@
 const { StatusCodes } = require("http-status-codes");
 const Order = require("../../models/orderModel");
 const ErrorHandler = require("../../middleware/errorHandler");
-const { generateOrderID } = require("../../utils/helper");
 const razorpay = require("../../utils/razorpayClient");
 const crypto = require("crypto");
 const Product = require("../../models/productModel");
-const { sendOrderMail } = require("../emailController");
-const CouponModel = require("../../models/couponModel");
+const { sendPlacedOrderMail, sendPaymentStatusMail } = require("../emailController");
+const Coupon = require("../../models/couponModel");
 
 module.exports.placeOrder = async (req, res, next) => {
   try {
-    const { customer, items, shipping_address, customer_details, payment, coupon_id } = req.body;
+    const { customer, customer_details, items, shipping_address, coupon_id, notes } = req.body;
 
-    if (!customer || !items?.length || !shipping_address || !customer_details || !payment) {
-      return next(new ErrorHandler("All order fields are required", StatusCodes.BAD_REQUEST));
+    if (!items || items.length === 0) {
+      return next(new ErrorHandler("Items are required", StatusCodes.BAD_REQUEST));
     }
 
-    for (const item of items) {
-      const product = await Product.findById(item.product);
+    let product_total = 0;
+    let discount_amount = 0;
+    let coupon_discount_amount = 0;
+    let shipping_charge = 0;
 
+    const populatedItems = [];
+
+    for (const it of items) {
+      const product = await Product.findById(it.product).lean();
       if (!product) {
-        return next(new ErrorHandler(`Product not found: ${item.product}`, StatusCodes.NOT_FOUND));
+        return next(new ErrorHandler("Product not found", StatusCodes.NOT_FOUND));
       }
 
-      if (product.qty <= 0) {
-        return next(new ErrorHandler(`Product "${product.name}" is out of stock.`, StatusCodes.BAD_REQUEST));
-      }
+      const websitePrice = product.price?.website_price || 0;
+      const discountPercentage = product.price?.discounted_percentage || 0;
+      const perProductShipping = product.price?.shipping_charge || 0;
 
-      if (product.qty < item.quantity) {
-        return next(new ErrorHandler(`Insufficient stock for "${product.name}". Only ${product.qty} left.`, StatusCodes.BAD_REQUEST));
-      }
+      const item_price = websitePrice;
+      const qty = it.quantity || 1;
+
+      const item_discount = (item_price * discountPercentage) / 100;
+      discount_amount += item_discount * qty;
+
+      const item_total = item_price * qty;
+      product_total += item_total;
+
+      shipping_charge += perProductShipping;
+
+      populatedItems.push({
+        product: it.product,
+        sku: it.sku,
+        size: it.size,
+        name: product.name,
+        image_url: product.main_image,
+        price: {
+          item_price,
+          total_price: item_total,
+        },
+        quantity: qty,
+      });
     }
 
-    // Validate coupon if provided
-    let validCoupon = null;
+    let couponDetails = null;
     if (coupon_id) {
-      try {
-        validCoupon = await CouponModel.findById(coupon_id);
-        
-        if (!validCoupon) {
-          return next(new ErrorHandler("Invalid coupon code", StatusCodes.BAD_REQUEST));
-        }
+      couponDetails = await Coupon.findOne({
+        _id: coupon_id,
+        status: "active",
+        $or: [
+          { noExpiry: true },
+          { expiryDate: { $gte: new Date() } }
+        ]
+      });
 
-        if (validCoupon.status !== "active") {
-          return next(new ErrorHandler("Coupon is inactive", StatusCodes.BAD_REQUEST));
-        }
-
-        if (!validCoupon.noExpiry && validCoupon.expiryDate) {
-          const now = new Date();
-          if (now > validCoupon.expiryDate) {
-            return next(new ErrorHandler("Coupon has expired", StatusCodes.BAD_REQUEST));
-          }
-        }
-      } catch (error) {
-        return next(new ErrorHandler("Invalid coupon code", StatusCodes.BAD_REQUEST));
+      if (couponDetails && couponDetails.percentage) {
+        coupon_discount_amount =
+          Number(((product_total * couponDetails.percentage) / 100).toFixed(2));
       }
     }
 
-    // Validate payment amount
-    if (!payment.total_amount || payment.total_amount <= 0) {
-      return next(new ErrorHandler("Invalid payment amount", StatusCodes.BAD_REQUEST));
-    }
-
-    const orderID = await generateOrderID();
-
-    // Razorpay requires amount in paise (smallest currency unit) as an integer
-    const razorpayAmount = Math.round(payment.total_amount * 100);
-    
-    if (razorpayAmount < 1) {
-      return next(new ErrorHandler("Payment amount must be at least ₹0.01", StatusCodes.BAD_REQUEST));
-    }
+    const total_amount = Number(
+      (product_total - discount_amount - coupon_discount_amount + shipping_charge)
+        .toFixed(2)
+    );
 
     const razorpayOrder = await razorpay.orders.create({
-      amount: razorpayAmount,
+      amount: Math.round(total_amount * 100),
       currency: "INR",
-      receipt: orderID,
-      payment_capture: 1,
+      receipt: "RCPT-" + Date.now(),
       notes: {
-        customer_name: customer_details.name,
         customer_email: customer_details.email,
-        customer_contact: customer_details.phone,
-      },
+        customer_name: customer_details.name
+      }
     });
 
-    for (const item of items) {
-      await Product.findByIdAndUpdate(
-        item.product,
-        { $inc: { qty: -item.quantity } },
-        { new: true }
-      );
-    }
+    const orderID = "ORD-" + Date.now();
 
-    const order = new Order({
+    const newOrder = await Order.create({
       customer,
       customer_details,
-      orderID,
-      items,
+      items: populatedItems,
       shipping_address,
-      coupon_id: validCoupon ? coupon_id : undefined,
+      notes,
+      coupon_id,
+      orderID,
       payment: {
-        product_total: payment.product_total,
-        shipping_charge: payment.shipping_charge || 0,
-        total_amount: payment.total_amount,
-        payment_status: "Pending",
+        product_total,
+        shipping_charge,
+        total_amount,
+        discount_amount,
+        coupon_discount_amount,
         payment_details: {
           razorpay_order_id: razorpayOrder.id,
-          amount: razorpayOrder.amount / 100,
-          currency: razorpayOrder.currency,
-          status: razorpayOrder.status,
+          razorpay_amount: razorpayOrder.amount,
+          status: "created",
         },
-        payment_method: "Pending",
+        payment_method: "Online",
+        payment_status: "Pending",
       },
-      order_status: "pending",
     });
 
-    await order.save();
+    await sendPlacedOrderMail({
+      email: customer_details.email,
+      order: newOrder,
+      items: populatedItems,
+      razorpayOrder
+    });
 
-    if (validCoupon) {
-      validCoupon.orderIds.push(order._id);
-      validCoupon.usageCount += 1;
-      await validCoupon.save();
-    }
-
-    res.status(StatusCodes.CREATED).json({
+    return res.status(StatusCodes.CREATED).json({
       success: true,
-      message: "Order placed. Use Razorpay Checkout to complete payment.",
-      data: {
-        razorpay_order_id: razorpayOrder.id,
-        amount: razorpayOrder.amount / 100,
-        currency: razorpayOrder.currency,
-        customer_details,
-        order,
-      },
+      message: "Order placed successfully",
+      razorpayOrder,
+      data: newOrder,
     });
+
   } catch (error) {
-    console.error("Order creation error:", error);
-    // Provide more detailed error message
-    const errorMessage = error.message || "Failed to create order";
-    return next(new ErrorHandler(errorMessage, StatusCodes.INTERNAL_SERVER_ERROR));
+    next(new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };
 
@@ -175,16 +168,12 @@ module.exports.verifyPaymentStatus = async (req, res, next) => {
 
       await order.save();
 
-      // Send order confirmation email only after payment is verified
-      sendOrderMail(
-        order.customer_details.email,
-        order.orderID,
-        order.items,
-        order.payment.total_amount
-      ).catch((emailError) => {
-        console.error("Failed to send order confirmation email:", emailError);
-        // Don't throw - payment is already verified and order is saved
-      });
+      // await sendOrderMail(
+      //   order.customer_details.email,
+      //   order.orderID,
+      //   order.items,
+      //   order.payment.total_amount
+      // )
 
       return res.status(StatusCodes.OK).json({
         success: true,
@@ -206,11 +195,12 @@ module.exports.updatePaymentStatus = async (req, res, next) => {
     const { id } = req.params;
     const { payment_status, payment_details } = req.body;
 
-    const order = await Order.findById(id);
+    const order = await Order.findById(id).populate("items.product");
     if (!order)
       return next(new ErrorHandler("Order not found", StatusCodes.NOT_FOUND));
 
     if (payment_status) order.payment.payment_status = payment_status;
+
     if (payment_details) {
       order.payment.payment_details = {
         ...order.payment.payment_details,
@@ -220,15 +210,45 @@ module.exports.updatePaymentStatus = async (req, res, next) => {
 
     if (payment_status === "Paid") {
       order.order_status = "processing";
+
+      for (const item of order.items) {
+        await Product.findByIdAndUpdate(
+          item.product._id,
+          { $inc: { qty: -item.quantity } },
+          { new: true }
+        );
+      }
+
+      const couponId = order.coupon_id;
+      if (couponId) {
+        const coupon = await Coupon.findById(couponId);
+
+        if (coupon) {
+          const alreadyExists = coupon.orderIds.includes(order._id);
+
+          if (!alreadyExists) {
+            coupon.orderIds.push(order._id);
+            coupon.usageCount += 1;
+            await coupon.save();
+          }
+        }
+      }
+
+      await sendPaymentStatusMail({
+        email: order.customer_details.email,
+        name: order.customer_details.name,
+        order,
+      });
     }
 
     await order.save();
 
     res.status(StatusCodes.OK).json({
       success: true,
-      message: "Payment info updated successfully",
+      message: "Payment status updated successfully",
       data: order,
     });
+
   } catch (error) {
     return next(
       new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR)

@@ -57,7 +57,6 @@ module.exports.createProduct = async (req, res, next) => {
   }
 };
 
-
 module.exports.editProduct = async (req, res, next) => {
   try {
     const { productId } = req.params;
@@ -312,6 +311,40 @@ module.exports.deleteProduct = async (req, res, next) => {
   } catch (error) {
     return next(
       new ErrorHandler(error.message, error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR)
+    );
+  }
+};
+
+module.exports.deleteReview = async (req, res, next) => {
+  try {
+    const { productId, reviewId } = req.params;
+
+    const product = await Product.findById(productId);
+    if (!product)
+      return next(new ErrorHandler("Product not found", StatusCodes.NOT_FOUND));
+
+    const reviewIndex = product.reviews.findIndex(
+      (r) => r._id.toString() === reviewId
+    );
+
+    if (reviewIndex === -1) {
+      return next(
+        new ErrorHandler("Review not found", StatusCodes.NOT_FOUND)
+      );
+    }
+
+    product.reviews.splice(reviewIndex, 1);
+
+    await product.save();
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Review deleted successfully",
+      data: product,
+    });
+  } catch (error) {
+    return next(
+      new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR)
     );
   }
 };

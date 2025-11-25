@@ -43,6 +43,7 @@ router.get("/admin/product/one/:productId", protectRoute, allowAccess(["admin"])
 router.put("/admin/product/edit/:productId", protectRoute, allowAccess(["admin"]), uploadProductFiles, adminProductController.editProduct)
 router.delete("/admin/product/delete-images/:productId", protectRoute, allowAccess(["admin"]), adminProductController.deleteProductImages)
 router.delete("/admin/product/delete/:productId", protectRoute, allowAccess(["admin"]), adminProductController.deleteProduct)
+router.delete("/admin/product/review/:productId/:reviewId", protectRoute, allowAccess(["admin"]), adminProductController.deleteReview);
 // router.delete("/admin/product/deletes", protectRoute, allowAccess(["admin"]), adminProductController.deleteMultipleProducts)
 
 //Category
@@ -83,6 +84,7 @@ router.get("/admin/coupon/all", protectRoute, allowAccess(["admin"]), adminCoupo
 router.get("/admin/coupon/analytics/:id", adminCouponController.getCouponAnalyticsById)
 router.get("/admin/coupon/one/:id", protectRoute, allowAccess(["admin"]), adminCouponController.getCouponById)
 router.get("/admin/coupon/update/:id", protectRoute, allowAccess(["admin"]), adminCouponController.updateCoupon)
+router.delete("/admin/coupon/delete/:id", protectRoute, allowAccess(["admin"]), adminCouponController.deleteCoupon)
 
 // contact Us
 router.get("/admin/contact/all", protectRoute, allowAccess(["admin"]), adminContactUsController.getAllContacts);

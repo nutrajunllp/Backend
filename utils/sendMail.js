@@ -1,4 +1,4 @@
-const { transporterOTP } = require("../config/emailConfig");
+const { transporterOTP, transporterORDER } = require("../config/emailConfig");
 
 /**
  * Function to send an email
@@ -26,5 +26,5 @@ module.exports.ORDEREmail = async (email, subject, message) => {
     html: message,
   };
 
-  await transporter.sendMail(mailOptions);
+  await transporterORDER.sendMail(mailOptions);
 };
