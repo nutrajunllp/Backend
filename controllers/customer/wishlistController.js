@@ -1,10 +1,18 @@
-const Wishlist = require("../../models/productModel");
+const Wishlist = require("../../models/wishlistModel");
 const { StatusCodes } = require("http-status-codes");
 
 exports.addToWishlist = async (req, res, next) => {
   try {
-    const { productId } = req.body;
+    // Accept both productId and product_id for compatibility
+    const productId = req.body.productId || req.body.product_id;
     const customerId = req.user._id; // from auth middleware
+
+    if (!productId) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Product ID is required",
+      });
+    }
 
     let wishlist = await Wishlist.findOne({ customer: customerId });
 
@@ -14,8 +22,13 @@ exports.addToWishlist = async (req, res, next) => {
         items: [{ product: productId }],
       });
     } else {
+      // Ensure items array exists before calling .some()
+      if (!wishlist.items || !Array.isArray(wishlist.items)) {
+        wishlist.items = [];
+      }
+
       const exists = wishlist.items.some(
-        item => item.product.toString() === productId
+        item => item.product && item.product.toString() === productId.toString()
       );
 
       if (exists) {
@@ -47,9 +60,15 @@ exports.getWishlist = async (req, res, next) => {
     const wishlist = await Wishlist.findOne({ customer: customerId })
       .populate("items.product");
 
+    // Format response to match frontend expectations
+    const products = wishlist && wishlist.items ? wishlist.items.map(item => item.product).filter(Boolean) : [];
+
     res.status(StatusCodes.OK).json({
       success: true,
-      data: wishlist || { items: [] },
+      data: {
+        products: products,
+        items: wishlist?.items || []
+      },
     });
   } catch (error) {
     next(error);
@@ -110,7 +129,9 @@ exports.checkWishlistProduct = async (req, res, next) => {
 
     res.status(StatusCodes.OK).json({
       success: true,
-      inWishlist: !!wishlist,
+      data: {
+        isInWishlist: !!wishlist,
+      },
     });
   } catch (error) {
     next(error);

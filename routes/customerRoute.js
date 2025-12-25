@@ -50,7 +50,7 @@ router.delete("/customer/cart/clear", protectRoute, allowAccess(["customer"]), c
 
 // wishlist
 router.post("/customer/wishlist/add", protectRoute, allowAccess(["customer"]), wishlistController.addToWishlist);
-router.get("/customer/wishlist/", protectRoute, allowAccess(["customer"]), wishlistController.getWishlist);
+router.get("/customer/wishlist", protectRoute, allowAccess(["customer"]), wishlistController.getWishlist);
 router.delete("/customer/wishlist/remove/:productId", protectRoute, allowAccess(["customer"]), wishlistController.removeFromWishlist);
 router.delete("/customer/wishlist/clear", protectRoute, allowAccess(["customer"]), wishlistController.clearWishlist);
 router.get("/customer/wishlist/check/:productId", protectRoute, allowAccess(["customer"]), wishlistController.checkWishlistProduct);
