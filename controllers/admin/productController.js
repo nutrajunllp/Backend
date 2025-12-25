@@ -191,11 +191,34 @@ module.exports.getAllProducts = async (req, res, next) => {
     const perPage = parseInt(req.query.perPage) || 10;
     const skip = (page - 1) * perPage;
 
-    const filter = req.query.category ? { category: req.query.category } : {};
+    // Build filter object
+    const filter = {};
+
+    // Category filter
+    if (req.query.category) {
+      filter.category = req.query.category;
+    }
+
+    // Status filter
+    if (req.query.status !== undefined && req.query.status !== null && req.query.status !== "") {
+      const numericStatus = parseInt(req.query.status);
+      if (!isNaN(numericStatus)) {
+        filter.status = numericStatus;
+      }
+    }
+
+    // Search filter (by name or SKU)
+    if (req.query.search && req.query.search.trim() !== "") {
+      const searchTerm = req.query.search.trim();
+      filter.$or = [
+        { name: { $regex: searchTerm, $options: "i" } },
+        { sku: { $regex: searchTerm, $options: "i" } }
+      ];
+    }
 
     const [products, totalProductsCount] = await Promise.all([
       Product.find(filter)
-        .sort({ createdAt: -1 })  
+        .sort({ createdAt: -1, _id: -1 })  // Added _id to ensure consistent sorting
         .skip(skip)
         .limit(perPage),
       Product.countDocuments(filter),
