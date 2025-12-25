@@ -13,11 +13,6 @@ const wishlistSchema = new mongoose.Schema({
         ref: "Product",
         required: true,
       },
-      size: {
-        size_id: { type: mongoose.Schema.Types.ObjectId }, // ID of selected size
-        title: { type: String }, // Size title
-        volume: { type: String }, // Size volume
-      },
     },
   ],
   updated_at: { type: Date, default: Date.now },

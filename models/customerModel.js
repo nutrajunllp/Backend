@@ -42,6 +42,9 @@ const customerSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
+    profile_photo: {
+      type: String
+    },
     mobile_number: {
       type: String,
       validate: {

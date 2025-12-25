@@ -9,6 +9,7 @@ const customerCategoryController = require("../controllers/customer/categoryCous
 const cartController = require("../controllers/customer/cartController");
 const orderController = require("../controllers/customer/orderController");
 const paymentController = require("../controllers/paymentController");
+const wishlistController = require("../controllers/customer/wishlistController");
 const Order = require("../models/orderModel");
 const { createContact } = require("../controllers/admin/contactController");
 const { getAllGalleryMainWeb } = require("../controllers/admin/galleryController");
@@ -40,12 +41,19 @@ router.get("/customer/category/one/:categoryId", customerCategoryController.getC
 //Review
 router.post("/customer/review/add/:productId", protectRoute, allowAccess(["customer"]), customerProductController.addReviewCustomer)
 
-// //Cart
+//Cart
 router.post("/customer/cart/add", protectRoute, allowAccess(["customer"]), cartController.addToCart)
 router.get("/customer/cart/items", protectRoute, allowAccess(["customer"]), cartController.getCart)
 router.put("/customer/cart/item/remove", protectRoute, allowAccess(["customer"]), cartController.removeItem)
 router.put("/customer/cart/item/update-quantity", protectRoute, allowAccess(["customer"]), cartController.updateQuantity)
 router.delete("/customer/cart/clear", protectRoute, allowAccess(["customer"]), cartController.clearCart)
+
+// wishlist
+router.post("/customer/wishlist/add", protectRoute, allowAccess(["customer"]), wishlistController.addToWishlist);
+router.get("/customer/wishlist/", protectRoute, allowAccess(["customer"]), wishlistController.getWishlist);
+router.delete("/customer/wishlist/remove/:productId", protectRoute, allowAccess(["customer"]), wishlistController.removeFromWishlist);
+router.delete("/customer/wishlist/clear", protectRoute, allowAccess(["customer"]), wishlistController.clearWishlist);
+router.get("/customer/wishlist/check/:productId", protectRoute, allowAccess(["customer"]), wishlistController.checkWishlistProduct);
 
 //order
 router.post("/customer/order/create", protectRoute, allowAccess(["customer"]), orderController.placeOrder)

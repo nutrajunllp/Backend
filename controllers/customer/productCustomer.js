@@ -102,12 +102,30 @@ module.exports.getAllProductsCustomer = async (req, res, next) => {
       perPage = 10,
     } = req.query;
 
+    const productType = req.query.productType;
+
+    if (productType === undefined) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "productType is required. Allowed values: 0 (Normal) or 1 (Inquiry)",
+      });
+    }
+
+    if (!["0", "1"].includes(productType)) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Invalid productType. Allowed values are 0 (Normal) or 1 (Inquiry)",
+      });
+    }
+
     let filter = {};
+
+    filter.inquiry = Number(productType);
 
     if (category) {
       const categoryArray = Array.isArray(category)
         ? category
-        : category.split(",").map((id) => id.trim());
+        : category.split(",").map(id => id.trim());
       filter.category = { $in: categoryArray };
     }
 
@@ -123,13 +141,15 @@ module.exports.getAllProductsCustomer = async (req, res, next) => {
         filter["price.website_price"].$lte = Number(maxPrice);
     }
 
-    if (status !== undefined) {
-      filter.status = Number(status);
-    }
+    filter.status = Number(status);
+
     const skip = (parseInt(page) - 1) * parseInt(perPage);
 
     const [products, totalCount] = await Promise.all([
-      Product.find(filter).skip(skip).limit(parseInt(perPage)).sort({ createdAt: -1 }),
+      Product.find(filter)
+        .skip(skip)
+        .limit(parseInt(perPage))
+        .sort({ createdAt: -1 }),
       Product.countDocuments(filter),
     ]);
 
@@ -155,6 +175,7 @@ module.exports.getAllProductsCustomer = async (req, res, next) => {
     );
   }
 };
+
 
 module.exports.addReviewCustomer = async (req, res, next) => {
   try {
