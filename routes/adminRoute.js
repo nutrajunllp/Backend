@@ -30,7 +30,10 @@ const uploadCategoryBanner = uploadFile("category-banner").single("image");
 const uploadOrderPhoto = uploadFile("order-photo").single("image");
 const uploadBlogPhotos = uploadFile("blog-photo").any();
 
-const uploadGalleryImage = uploadFile("gallery").single("image");
+const uploadGalleryFiles = uploadFile("gallery").fields([
+  { name: "image", maxCount: 1 },
+  { name: "video", maxCount: 1 },
+]);
 
 //Auth
 router.post("/admin/auth/send-otp", adminAuthController.sendAdminLoginOTP);
@@ -93,10 +96,10 @@ router.get("/admin/contact/one/:contactId", protectRoute, allowAccess(["admin"])
 router.delete("/admin/contact/delete", protectRoute, allowAccess(["admin"]), adminContactUsController.deleteMultipleContacts);
 
 //Gallery
-router.post("/admin/gallery/create", protectRoute, allowAccess(["admin"]), uploadGalleryImage, galleryController.createGalleryImage);
+router.post("/admin/gallery/create", protectRoute, allowAccess(["admin"]), uploadGalleryFiles, galleryController.createGalleryImage);
 router.get("/admin/gallery", protectRoute, allowAccess(["admin"]), galleryController.getAllGalleryImages);
 router.delete("/admin/gallery/delete/:id", protectRoute, allowAccess(["admin"]), galleryController.deleteGalleryImage);
-router.put("/admin/gallery/edit/:id", protectRoute, allowAccess(["admin"]), uploadGalleryImage, galleryController.editGalleryImage);
+router.put("/admin/gallery/edit/:id", protectRoute, allowAccess(["admin"]), uploadGalleryFiles, galleryController.editGalleryImage);
 
 // POST: Generate Shipping Label
 router.post("/admin/order/label/:orderId", async (req, res) => {

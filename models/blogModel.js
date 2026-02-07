@@ -10,11 +10,15 @@ const BlogSchema = new mongoose.Schema(
     main_image: {
       type: String, 
     },
+    main_video: {
+      type: String,
+    },
     content: [
       {
         title: { type: String },
         description: { type: String },
-        image: { type: String }, 
+        image: { type: String },
+        video: { type: String },
       },
     ],
     status: {

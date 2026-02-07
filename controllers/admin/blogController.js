@@ -12,21 +12,28 @@ exports.createBlog = async (req, res, next) => {
     const files = req.files;
     const mainImageFile = files.find((f) => f.fieldname === "main_image");
     const mainImage = mainImageFile ? mainImageFile.location : null;
+    const mainVideoFile = files.find((f) => f.fieldname === "main_video");
+    const mainVideo = mainVideoFile ? mainVideoFile.location : null;
 
     const finalContent = parsedContent.map((item, index) => {
       const contentImageFile = files.find(
         (f) => f.fieldname === `content[${index}].contentImages`
       );
+      const contentVideoFile = files.find(
+        (f) => f.fieldname === `content[${index}].contentVideos`
+      );
       return {
         title: item.title,
         description: item.description,
         image: contentImageFile ? contentImageFile.location : "",
+        video: contentVideoFile ? contentVideoFile.location : "",
       };
     });
 
     const newBlog = await BlogModel.create({
       main_title,
       main_image: mainImage,
+      main_video: mainVideo,
       content: finalContent,
       status,
     });
@@ -83,7 +90,7 @@ module.exports.updateBlog = async (req, res, next) => {
       return next(new ErrorHandler("Blog not found", StatusCodes.NOT_FOUND));
     }
 
-    const { main_title, content, status, main_image_removed } = req.body;
+    const { main_title, content, status, main_image_removed, main_video_removed } = req.body;
     const files = req.files || [];
 
     let parsedContent = [];
@@ -95,57 +102,74 @@ module.exports.updateBlog = async (req, res, next) => {
 
     const mainImageFile = files.find((f) => f.fieldname === "main_image");
     let mainImage = blog.main_image;
+    const mainVideoFile = files.find((f) => f.fieldname === "main_video");
+    let mainVideo = blog.main_video;
 
     // Handle main image
     if (mainImageFile) {
-      // New image uploaded - delete old one if exists
       if (blog.main_image) {
         await deleteFileFromS3(blog.main_image);
       }
       mainImage = mainImageFile.location;
     } else if (main_image_removed === 'true' || main_image_removed === true) {
-      // Image was removed by user (already deleted from S3 by frontend)
       mainImage = null;
     }
-    // If neither new file nor removed flag, keep existing image
 
-    // Collect images to delete when replaced
-    const imagesToDelete = [];
+    // Handle main video
+    if (mainVideoFile) {
+      if (blog.main_video) {
+        await deleteFileFromS3(blog.main_video);
+      }
+      mainVideo = mainVideoFile.location;
+    } else if (main_video_removed === 'true' || main_video_removed === true) {
+      mainVideo = null;
+    }
+
+    // Collect files to delete when replaced
+    const filesToDelete = [];
     
     const updatedContent = parsedContent.map((item, index) => {
-      const newFile = files.find(
+      const newImageFile = files.find(
         (f) => f.fieldname === `content[${index}].contentImages`
+      );
+      const newVideoFile = files.find(
+        (f) => f.fieldname === `content[${index}].contentVideos`
       );
 
       let oldImage = blog.content[index]?.image || "";
       let finalImage = oldImage;
+      let oldVideo = blog.content[index]?.video || "";
+      let finalVideo = oldVideo;
 
-      if (newFile) {
-        // New image file uploaded - mark old one for deletion
-        if (oldImage) {
-          imagesToDelete.push(oldImage);
-        }
-        finalImage = newFile.location;
+      if (newImageFile) {
+        if (oldImage) filesToDelete.push(oldImage);
+        finalImage = newImageFile.location;
       } else if (item.image === null || item.image === '') {
-        // Image was explicitly removed (already deleted from S3 by frontend)
         finalImage = "";
       }
-      // If neither new file nor null, keep existing image
+
+      if (newVideoFile) {
+        if (oldVideo) filesToDelete.push(oldVideo);
+        finalVideo = newVideoFile.location;
+      } else if (item.video === null || item.video === '') {
+        finalVideo = "";
+      }
 
       return {
         title: item.title || blog.content[index]?.title,
         description: item.description || blog.content[index]?.description,
         image: finalImage,
+        video: finalVideo,
       };
     });
     
-    // Delete old images that were replaced (in parallel)
-    if (imagesToDelete.length > 0) {
-      await deleteFileFromS3(imagesToDelete);
+    if (filesToDelete.length > 0) {
+      await deleteFileFromS3(filesToDelete);
     }
 
     blog.main_title = main_title || blog.main_title;
     blog.main_image = mainImage;
+    blog.main_video = mainVideo;
     blog.content = updatedContent;
     blog.status = status || blog.status;
 
@@ -220,9 +244,11 @@ module.exports.deleteBlog = async (req, res, next) => {
     const fileUrls = [];
 
     if (blog.main_image) fileUrls.push(blog.main_image);
+    if (blog.main_video) fileUrls.push(blog.main_video);
     if (Array.isArray(blog.content)) {
       blog.content.forEach((block) => {
         if (block.image) fileUrls.push(block.image);
+        if (block.video) fileUrls.push(block.video);
       });
     }
 
