@@ -80,6 +80,7 @@ router.get("/admin/blog/all", protectRoute, allowAccess(["admin"]), adminBlogCon
 router.get("/admin/blog/one/:id", protectRoute, allowAccess(["admin"]), adminBlogController.getBlog)
 router.put("/admin/blog/edit/:id", protectRoute, allowAccess(["admin"]), uploadBlogPhotos, adminBlogController.updateBlog)
 router.delete("/admin/blog/delete-images/:id", protectRoute, allowAccess(["admin"]), adminBlogController.deleteBlogImages)
+router.delete("/admin/blog/delete-videos/:id", protectRoute, allowAccess(["admin"]), adminBlogController.deleteBlogVideos)
 router.delete("/admin/blog/delete/:id", protectRoute, allowAccess(["admin"]), adminBlogController.deleteBlog)
 
 //Coupon

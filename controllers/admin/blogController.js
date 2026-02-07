@@ -232,6 +232,48 @@ module.exports.deleteBlogImages = async (req, res, next) => {
   }
 };
 
+module.exports.deleteBlogVideos = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { videoLinks } = req.body;
+
+    if (!id) {
+      return next(
+        new ErrorHandler("Blog ID is required.", StatusCodes.BAD_REQUEST)
+      );
+    }
+
+    if (!Array.isArray(videoLinks) || videoLinks.length === 0) {
+      return next(
+        new ErrorHandler(
+          "videoLinks must be a non-empty array of video URLs.",
+          StatusCodes.BAD_REQUEST
+        )
+      );
+    }
+
+    const blog = await BlogModel.findById(id);
+    if (!blog) {
+      return next(new ErrorHandler("Blog not found.", StatusCodes.NOT_FOUND));
+    }
+
+    // Delete from S3 (AWS)
+    await deleteFileFromS3(videoLinks);
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Selected video(s) deleted successfully from S3.",
+    });
+  } catch (error) {
+    return next(
+      new ErrorHandler(
+        error.message,
+        error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR
+      )
+    );
+  }
+};
+
 module.exports.deleteBlog = async (req, res, next) => {
   try {
     const { id } = req.params;

@@ -8,21 +8,55 @@ function parseNestedForm(body) {
   const parsed = {};
 
   for (const key in body) {
-    const value = body[key];
+    const rawValue = body[key];
+    const value = typeof rawValue === "string" ? rawValue.trim() : rawValue;
 
     if (key.includes("[")) {
       const [base, rest] = key.split("[");
-      const index = parseInt(rest.split("]")[0]);
-      const subKey = rest.split("].")[1];
+      const bracketContent = rest.split("]")[0];
+      const afterBracket = rest.substring(bracketContent.length + 1);
+      const index = parseInt(bracketContent, 10);
 
-      if (!parsed[base]) parsed[base] = [];
-      if (!parsed[base][index]) parsed[base][index] = {};
-
-      parsed[base][index][subKey] = value.trim();
+      if (!isNaN(index)) {
+        // Array format: key[0].title
+        const subKey = afterBracket.startsWith(".") ? afterBracket.slice(1) : null;
+        if (!parsed[base]) parsed[base] = [];
+        if (!parsed[base][index]) parsed[base][index] = {};
+        if (subKey) {
+          parsed[base][index][subKey] = value;
+        }
+      } else {
+        // Object format: meta[meta_title]
+        const subKey = bracketContent;
+        if (!parsed[base]) parsed[base] = {};
+        parsed[base][subKey] = value;
+      }
+    } else if (key.includes(".") && !key.includes("[")) {
+      // Nested: product_details.diet_type
+      const parts = key.split(".");
+      let current = parsed;
+      for (let i = 0; i < parts.length - 1; i++) {
+        const p = parts[i];
+        if (!current[p]) current[p] = {};
+        current = current[p];
+      }
+      current[parts[parts.length - 1]] = value;
     } else {
       parsed[key] = value;
     }
   }
+
+  // Convert sparse arrays to dense and ensure product_details (merge product_detail if present)
+  const arrayFields = ["key_benefits", "product_description", "disclaimer"];
+  arrayFields.forEach((field) => {
+    if (Array.isArray(parsed[field])) {
+      parsed[field] = parsed[field].filter((item) => item && (Object.keys(item).length > 0 || item.title || item.description));
+    }
+  });
+  if (parsed.product_detail && !parsed.product_details) {
+    parsed.product_details = parsed.product_detail;
+  }
+  delete parsed.product_detail;
 
   return parsed;
 }
@@ -68,11 +102,13 @@ module.exports.editProduct = async (req, res, next) => {
       );
     }
 
+    const parsedBody = parseNestedForm(req.body);
+
     const { main_image, images, videos } = req.files || {};
 
     let mainImage = product.main_image;
-    let updatedImages = [...product.images];
-    let updatedVideos = [...product.videos];
+    let updatedImages = product.images ? [...product.images] : [];
+    let updatedVideos = product.videos ? [...product.videos] : [];
 
     if (main_image && main_image.length > 0) {
       if (product.main_image) {
@@ -82,23 +118,43 @@ module.exports.editProduct = async (req, res, next) => {
     }
 
     if (images && images.length > 0) {
-      if (product.images && product.images.length > 0) {
-        await deleteFileFromS3(product.images);
-      }
-      updatedImages = images.map((file) => file.location);
+      const newImageUrls = images.map((file) => file.location);
+      const existingImages = Array.isArray(parsedBody.existing_images)
+        ? parsedBody.existing_images
+        : typeof parsedBody.existing_images === "string"
+          ? (() => { try { return JSON.parse(parsedBody.existing_images); } catch { return []; } })()
+          : [];
+      updatedImages = [...existingImages, ...newImageUrls];
+    } else if (parsedBody.existing_images !== undefined) {
+      const existingImages = Array.isArray(parsedBody.existing_images)
+        ? parsedBody.existing_images
+        : typeof parsedBody.existing_images === "string"
+          ? (() => { try { return JSON.parse(parsedBody.existing_images); } catch { return []; } })()
+          : [];
+      updatedImages = existingImages;
     }
 
     if (videos && videos.length > 0) {
-      if (product.videos && product.videos.length > 0) {
-        await deleteFileFromS3(product.videos);
-      }
-      updatedVideos = videos.map((file) => file.location);
+      const newVideoUrls = videos.map((file) => file.location);
+      const existingVideos = Array.isArray(parsedBody.existing_videos)
+        ? parsedBody.existing_videos
+        : typeof parsedBody.existing_videos === "string"
+          ? (() => { try { return JSON.parse(parsedBody.existing_videos); } catch { return []; } })()
+          : [];
+      updatedVideos = [...existingVideos, ...newVideoUrls];
+    } else if (parsedBody.existing_videos !== undefined) {
+      const existingVideos = Array.isArray(parsedBody.existing_videos)
+        ? parsedBody.existing_videos
+        : typeof parsedBody.existing_videos === "string"
+          ? (() => { try { return JSON.parse(parsedBody.existing_videos); } catch { return []; } })()
+          : [];
+      updatedVideos = existingVideos;
     }
 
-    const newCategoryIds = req.body.category || [];
+    const newCategoryIds = parsedBody.category || req.body.category || [];
     const newCategoryArray = Array.isArray(newCategoryIds)
       ? newCategoryIds
-      : [newCategoryIds];
+      : [newCategoryIds].filter(Boolean);
 
     const oldCategoryIds = product.category || [];
 
@@ -106,7 +162,7 @@ module.exports.editProduct = async (req, res, next) => {
       (id) => !newCategoryArray.includes(id.toString())
     );
     const addedCategoryIds = newCategoryArray.filter(
-      (id) => !oldCategoryIds.map((cid) => cid.toString()).includes(id)
+      (id) => !oldCategoryIds.map((cid) => cid.toString()).includes(id.toString())
     );
 
     await Promise.all(
@@ -129,8 +185,12 @@ module.exports.editProduct = async (req, res, next) => {
       )
     );
 
+    const excludeFields = ["existing_images", "existing_videos", "category"];
+    const baseUpdate = { ...parsedBody };
+    excludeFields.forEach((f) => delete baseUpdate[f]);
+
     const updatedData = {
-      ...req.body,
+      ...baseUpdate,
       main_image: mainImage,
       images: updatedImages,
       videos: updatedVideos,
