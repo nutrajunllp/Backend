@@ -100,6 +100,7 @@ module.exports.getAllProductsCustomer = async (req, res, next) => {
       status = 1,
       page = 1,
       perPage = 10,
+      stock_availability
     } = req.query;
 
     const productType = req.query.productType;
@@ -121,6 +122,16 @@ module.exports.getAllProductsCustomer = async (req, res, next) => {
     let filter = {};
 
     filter.inquiry = Number(productType);
+
+    if (stock_availability !== undefined) {
+      if (!["0", "1"].includes(stock_availability)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid stock_availability. Allowed values are 0 or 1",
+        });
+      }
+      filter.stock_availability = Number(stock_availability);
+    }
 
     if (category) {
       const categoryArray = Array.isArray(category)
@@ -175,7 +186,6 @@ module.exports.getAllProductsCustomer = async (req, res, next) => {
     );
   }
 };
-
 
 module.exports.addReviewCustomer = async (req, res, next) => {
   try {
