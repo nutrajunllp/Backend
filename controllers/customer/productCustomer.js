@@ -92,18 +92,28 @@ module.exports.getSingleProductCustomer = async (req, res, next) => {
 
 module.exports.getAllProductsCustomer = async (req, res, next) => {
   try {
+    const parsePositiveInt = (value, fallback) => {
+      const parsed = parseInt(value, 10);
+      return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+    };
+
     const {
       category,
       minPrice,
       maxPrice,
       qty,
       status = 1,
-      page = 1,
-      perPage = 10,
+      page,
+      perPage,
+      page_no,
+      items_per_page,
+      limit,
       stock_availability
     } = req.query;
 
     const productType = req.query.productType;
+    const normalizedPage = parsePositiveInt(page_no ?? page, 1);
+    const normalizedItemsPerPage = parsePositiveInt(items_per_page ?? perPage ?? limit, 10);
 
     if (productType === undefined) {
       return res.status(StatusCodes.BAD_REQUEST).json({
@@ -137,7 +147,10 @@ module.exports.getAllProductsCustomer = async (req, res, next) => {
       const categoryArray = Array.isArray(category)
         ? category
         : category.split(",").map(id => id.trim());
-      filter.category = { $in: categoryArray };
+      const normalizedCategories = categoryArray
+        .filter(Boolean)
+        .map((id) => (mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id));
+      filter.category = { $in: normalizedCategories };
     }
 
     if (qty) {
@@ -154,15 +167,34 @@ module.exports.getAllProductsCustomer = async (req, res, next) => {
 
     filter.status = Number(status);
 
-    const skip = (parseInt(page) - 1) * parseInt(perPage);
+    const skip = (normalizedPage - 1) * normalizedItemsPerPage;
+    const deterministicSort = { createdAt: -1, _id: -1 };
+    const matchStage = { $match: filter };
+    const dedupeStage = {
+      $group: {
+        _id: "$_id",
+        doc: { $first: "$$ROOT" },
+      },
+    };
 
-    const [products, totalCount] = await Promise.all([
-      Product.find(filter)
-        .skip(skip)
-        .limit(parseInt(perPage))
-        .sort({ createdAt: -1 }),
-      Product.countDocuments(filter),
+    const [products, totalCountResult] = await Promise.all([
+      Product.aggregate([
+        matchStage,
+        { $sort: deterministicSort },
+        dedupeStage,
+        { $replaceRoot: { newRoot: "$doc" } },
+        { $sort: deterministicSort },
+        { $skip: skip },
+        { $limit: normalizedItemsPerPage },
+      ]),
+      Product.aggregate([
+        matchStage,
+        dedupeStage,
+        { $count: "total_items" },
+      ]),
     ]);
+
+    const totalCount = totalCountResult[0]?.total_items || 0;
 
     return res.status(StatusCodes.OK).json({
       code: StatusCodes.OK,
@@ -171,10 +203,10 @@ module.exports.getAllProductsCustomer = async (req, res, next) => {
       data: products,
       pagination: {
         total_items: totalCount,
-        total_pages: Math.ceil(totalCount / perPage),
+        total_pages: Math.ceil(totalCount / normalizedItemsPerPage),
         current_page_item: products.length,
-        page_no: parseInt(page),
-        items_per_page: parseInt(perPage),
+        page_no: normalizedPage,
+        items_per_page: normalizedItemsPerPage,
       },
     });
   } catch (error) {
