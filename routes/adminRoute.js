@@ -14,6 +14,7 @@ const adminBlogController = require("../controllers/admin/blogController");
 const adminCouponController = require("../controllers/admin/couponController");
 const adminContactUsController = require("../controllers/admin/contactController");
 const galleryController = require("../controllers/admin/galleryController");
+const adminOfferController = require("../controllers/admin/offerController");
 
 const { protectRoute, allowAccess } = require("../middleware/auth");
 const { uploadFile } = require("../middleware/multer-s3-upload");
@@ -29,6 +30,7 @@ const uploadProductFiles = uploadFile("products").fields([
 const uploadCategoryBanner = uploadFile("category-banner").single("image");
 const uploadOrderPhoto = uploadFile("order-photo").single("image");
 const uploadBlogPhotos = uploadFile("blog-photo").any();
+const uploadOfferBanner = uploadFile("offer-banner").single("banner_image");
 
 const uploadGalleryFiles = uploadFile("gallery").fields([
   { name: "image", maxCount: 1 },
@@ -90,6 +92,14 @@ router.get("/admin/coupon/analytics/:id", adminCouponController.getCouponAnalyti
 router.get("/admin/coupon/one/:id", protectRoute, allowAccess(["admin"]), adminCouponController.getCouponById)
 router.get("/admin/coupon/update/:id", protectRoute, allowAccess(["admin"]), adminCouponController.updateCoupon)
 router.delete("/admin/coupon/delete/:id", protectRoute, allowAccess(["admin"]), adminCouponController.deleteCoupon)
+
+//Offer
+router.post("/admin/offer/create", protectRoute, allowAccess(["admin"]), uploadOfferBanner, adminOfferController.createOffer);
+router.get("/admin/offer/all", protectRoute, allowAccess(["admin"]), adminOfferController.getAllOffers);
+router.get("/admin/offer/one/:offerId", protectRoute, allowAccess(["admin"]), adminOfferController.getOfferById);
+router.put("/admin/offer/edit/:offerId", protectRoute, allowAccess(["admin"]), uploadOfferBanner, adminOfferController.editOffer);
+router.delete("/admin/offer/delete-image/:offerId", protectRoute, allowAccess(["admin"]), adminOfferController.deleteOfferBannerImage);
+router.delete("/admin/offer/delete/:offerId", protectRoute, allowAccess(["admin"]), adminOfferController.deleteOffer);
 
 // contact Us
 router.get("/admin/contact/all", protectRoute, allowAccess(["admin"]), adminContactUsController.getAllContacts);

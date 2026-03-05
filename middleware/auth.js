@@ -2,9 +2,19 @@ const { verifyToken } = require("../utils/tokenGenerator");
 const ErrorHandler = require("./errorHandler");
 
 const protectRoute = (req, res, next) => {
-  const token = req.headers.authorization;
-  if (!token) return next(new ErrorHandler("Enter authentication your token", 401));
-  const user = verifyToken(token);
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return next(new ErrorHandler("Enter authentication your token", 401));
+
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.split(" ")[1]
+    : authHeader;
+
+  let user;
+  try {
+    user = verifyToken(token);
+  } catch (error) {
+    return next(new ErrorHandler("Sorry you are not authorized", 401));
+  }
 
   const userId = user?._id;
   if (!userId) return next(new ErrorHandler("Sorry you are not authorized", 401));

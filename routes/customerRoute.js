@@ -10,6 +10,7 @@ const cartController = require("../controllers/customer/cartController");
 const orderController = require("../controllers/customer/orderController");
 const paymentController = require("../controllers/paymentController");
 const wishlistController = require("../controllers/customer/wishlistController");
+const offerCustomerController = require("../controllers/customer/offerCustomerController");
 const Order = require("../models/orderModel");
 const { createContact } = require("../controllers/admin/contactController");
 const { getAllGalleryMainWeb } = require("../controllers/admin/galleryController");
@@ -33,6 +34,9 @@ router.get("/customer/profile-status/:id", protectRoute, allowAccess(["customer"
 router.get("/customer/product/home", customerProductController.getProductsCustomerHome)
 router.get("/customer/product/all", customerProductController.getAllProductsCustomer)
 router.get("/customer/product/one/:id", customerProductController.getSingleProductCustomer)
+
+//Offer
+router.get("/customer/offer/home", offerCustomerController.getHomeOffers);
 
 //Category
 router.get("/customer/category/all", customerCategoryController.getAllCategories)
