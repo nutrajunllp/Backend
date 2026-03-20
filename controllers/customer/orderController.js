@@ -381,7 +381,7 @@ module.exports.validateCoupon = async (req, res, next) => {
       return next(new ErrorHandler("Coupon code is required", StatusCodes.BAD_REQUEST));
     }
 
-    const coupon = await CouponModel.findOne({ code: code.toUpperCase().trim() });
+    const coupon = await Coupon.findOne({ code: code.toUpperCase().trim() });
 
     if (!coupon) {
       return res.status(StatusCodes.NOT_FOUND).json({
