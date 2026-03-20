@@ -90,7 +90,7 @@ router.post("/admin/coupon/create", protectRoute, allowAccess(["admin"]), adminC
 router.get("/admin/coupon/all", protectRoute, allowAccess(["admin"]), adminCouponController.getAllCoupons)
 router.get("/admin/coupon/analytics/:id", adminCouponController.getCouponAnalyticsById)
 router.get("/admin/coupon/one/:id", protectRoute, allowAccess(["admin"]), adminCouponController.getCouponById)
-router.get("/admin/coupon/update/:id", protectRoute, allowAccess(["admin"]), adminCouponController.updateCoupon)
+router.put("/admin/coupon/update/:id", protectRoute, allowAccess(["admin"]), adminCouponController.updateCoupon)
 router.delete("/admin/coupon/delete/:id", protectRoute, allowAccess(["admin"]), adminCouponController.deleteCoupon)
 
 //Offer
