@@ -15,6 +15,28 @@ module.exports.placeOrder = async (req, res, next) => {
       return next(new ErrorHandler("Items are required", StatusCodes.BAD_REQUEST));
     }
 
+    if (!customer_details?.email || !customer_details?.name || !customer_details?.phone) {
+      return next(
+        new ErrorHandler("customer_details (name, email, phone) are required", StatusCodes.BAD_REQUEST)
+      );
+    }
+
+    const customerId = customer != null ? customer : req.id;
+    if (String(customerId) !== String(req.id)) {
+      return next(
+        new ErrorHandler("Customer id must match the logged-in user (use the same id as in your JWT)", StatusCodes.FORBIDDEN)
+      );
+    }
+
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      return next(
+        new ErrorHandler(
+          "Payment gateway is not configured (missing RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET in .env)",
+          StatusCodes.SERVICE_UNAVAILABLE
+        )
+      );
+    }
+
     let product_total = 0;
     let discount_amount = 0;
     let coupon_discount_amount = 0;
@@ -79,20 +101,48 @@ module.exports.placeOrder = async (req, res, next) => {
         .toFixed(2)
     );
 
-    const razorpayOrder = await razorpay.orders.create({
-      amount: Math.round(total_amount * 100),
-      currency: "INR",
-      receipt: "RCPT-" + Date.now(),
-      notes: {
-        customer_email: customer_details.email,
-        customer_name: customer_details.name
-      }
-    });
+    if (!Number.isFinite(total_amount) || total_amount < 0) {
+      return next(
+        new ErrorHandler("Invalid order total. Check product prices and discounts.", StatusCodes.BAD_REQUEST)
+      );
+    }
+
+    // Razorpay INR minimum is typically ₹1.00 (100 paise)
+    const amountPaise = Math.round(total_amount * 100);
+    if (amountPaise < 100) {
+      return next(
+        new ErrorHandler(
+          `Order total is ₹${total_amount} after discounts. Minimum payable amount is ₹1. Reduce the coupon or add items.`,
+          StatusCodes.BAD_REQUEST
+        )
+      );
+    }
+
+    let razorpayOrder;
+    try {
+      razorpayOrder = await razorpay.orders.create({
+        amount: amountPaise,
+        currency: "INR",
+        receipt: "RCPT-" + Date.now(),
+        notes: {
+          customer_email: customer_details.email,
+          customer_name: customer_details.name,
+        },
+      });
+    } catch (rzpErr) {
+      console.error("Razorpay orders.create failed:", rzpErr?.error || rzpErr?.message || rzpErr);
+      const rzpMsg =
+        rzpErr?.error?.description ||
+        rzpErr?.error?.reason ||
+        rzpErr?.message ||
+        "Could not create Razorpay order. Check keys and amount.";
+      return next(new ErrorHandler(rzpMsg, StatusCodes.BAD_REQUEST));
+    }
 
     const orderID = "ORD-" + Date.now();
 
     const newOrder = await Order.create({
-      customer,
+      customer: customerId,
       customer_details,
       items: populatedItems,
       shipping_address,
@@ -115,12 +165,16 @@ module.exports.placeOrder = async (req, res, next) => {
       },
     });
 
-    await sendPlacedOrderMail({
-      email: customer_details.email,
-      order: newOrder,
-      items: populatedItems,
-      razorpayOrder
-    });
+    try {
+      await sendPlacedOrderMail({
+        email: customer_details.email,
+        order: newOrder,
+        items: populatedItems,
+        razorpayOrder,
+      });
+    } catch (mailErr) {
+      console.error("sendPlacedOrderMail failed (order still created):", mailErr?.message || mailErr);
+    }
 
     return res.status(StatusCodes.CREATED).json({
       success: true,
@@ -310,6 +364,8 @@ module.exports.getCustomerAllOrders = async (req, res, next) => {
         products,
         shippingAddress,
         trackingNumber: order.shipment?.tracking_Id || "N/A",
+        courierPartner: order.shipment?.delivery_partner || "",
+        shipmentStatus: order.shipment?.shipment_status || "pending",
         trackingUrl: order.shipment?.tracking_url || null,
         payment_status: order.payment.payment_status,
         payment_details: order.payment.payment_details || {},

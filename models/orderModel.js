@@ -123,7 +123,6 @@ const orderSchema = new mongoose.Schema(
       },
       shipment_status: {
         type: String,
-        enum: ["pending", "shipped", "delivered", "cancelled"],
         default: "pending",
       },
       is_shipment_confirmed: {

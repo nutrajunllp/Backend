@@ -3,6 +3,21 @@ const exceljs = require("exceljs");
 const ErrorHandler = require("../../middleware/errorHandler");
 const Order = require("../../models/orderModel");
 const { generateBarcodeBase64 } = require("../../utils/barcodeHelper");
+const {
+  sendOrderAcceptedMail,
+  sendShipmentTrackingMail,
+} = require("../emailController");
+
+const ALLOWED_SHIPMENT_STATUSES = [
+  "pending",
+  "packed",
+  "picked_up",
+  "in_transit",
+  "out_for_delivery",
+  "shipped",
+  "delivered",
+  "cancelled",
+];
 
 module.exports.getAllOrders = async (req, res, next) => {
   try {
@@ -111,11 +126,23 @@ module.exports.getOrderById = async (req, res, next) => {
 module.exports.updateShipment = async (req, res, next) => {
   try {
     const { _id } = req.params;
-    const { tracking_Id, delivery_partner } = req.body;
+    const {
+      tracking_Id,
+      delivery_partner,
+      shipment_status,
+      is_shipment_confirmed,
+    } = req.body;
 
     const order = await Order.findById(_id);
     if (!order) {
       return next(new ErrorHandler("Order not found", StatusCodes.NOT_FOUND));
+    }
+
+    if (!order.shipment || typeof order.shipment !== "object") {
+      order.shipment = {
+        shipment_status: "pending",
+        is_shipment_confirmed: 0,
+      };
     }
 
     if (order.order_status !== "accept") {
@@ -127,18 +154,60 @@ module.exports.updateShipment = async (req, res, next) => {
       );
     }
 
-    if (!tracking_Id || !delivery_partner) {
-      return next(
-        new ErrorHandler("All fields are required.", StatusCodes.BAD_REQUEST)
-      );
+    const prevTracking = order.shipment?.tracking_Id || "";
+
+    if (tracking_Id !== undefined && tracking_Id !== null) {
+      order.shipment.tracking_Id = String(tracking_Id).trim();
+    }
+    if (delivery_partner !== undefined && delivery_partner !== null) {
+      order.shipment.delivery_partner = String(delivery_partner).trim();
     }
 
-    if (tracking_Id) order.shipment.tracking_Id = tracking_Id;
-    if (delivery_partner) order.shipment.delivery_partner = delivery_partner;
-    order.shipment.shipment_status = "shipped";
-    order.shipment.is_shipment_confirmed = 1;
+    if (shipment_status) {
+      const normalized = String(shipment_status).trim().toLowerCase();
+      if (!ALLOWED_SHIPMENT_STATUSES.includes(normalized)) {
+        return next(
+          new ErrorHandler(
+            `Invalid shipment status. Allowed: ${ALLOWED_SHIPMENT_STATUSES.join(", ")}`,
+            StatusCodes.BAD_REQUEST
+          )
+        );
+      }
+      order.shipment.shipment_status = normalized;
+    }
+
+    if (is_shipment_confirmed === true || is_shipment_confirmed === 1) {
+      order.shipment.is_shipment_confirmed = 1;
+    } else if (is_shipment_confirmed === false || is_shipment_confirmed === 0) {
+      order.shipment.is_shipment_confirmed = 0;
+    }
+
+    const hasTracking = Boolean(order.shipment.tracking_Id);
+    const hasPartner = Boolean(order.shipment.delivery_partner);
+    if (hasTracking && hasPartner) {
+      order.shipment.is_shipment_confirmed = 1;
+      if (!shipment_status) {
+        order.shipment.shipment_status = "shipped";
+      }
+    }
 
     await order.save();
+
+    const newTracking = order.shipment?.tracking_Id || "";
+    if (
+      newTracking &&
+      newTracking !== prevTracking &&
+      order.customer_details?.email
+    ) {
+      try {
+        await sendShipmentTrackingMail({
+          email: order.customer_details.email,
+          order,
+        });
+      } catch (e) {
+        console.error("sendShipmentTrackingMail failed:", e.message);
+      }
+    }
 
     res.status(StatusCodes.OK).json({
       success: true,
@@ -221,6 +290,17 @@ module.exports.updateOrderStatus = async (req, res, next) => {
 
     order.order_status = status;
     await order.save();
+
+    if (status === "accept" && order.customer_details?.email) {
+      try {
+        await sendOrderAcceptedMail({
+          email: order.customer_details.email,
+          order,
+        });
+      } catch (e) {
+        console.error("sendOrderAcceptedMail failed:", e.message);
+      }
+    }
 
     res.status(StatusCodes.OK).json({
       success: true,

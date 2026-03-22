@@ -1,7 +1,6 @@
 const sendEmail = require("../utils/sendMail");
 const { ErrorHandler } = require("../middleware/errorHandler");
 const { StatusCodes } = require("http-status-codes");
-const Product = require("../models/productModel");
 
 const sendCustomEmail = async (req, res, next) => {
   try {
@@ -40,12 +39,32 @@ const sendPlacedOrderMail = async ({ email, order }) => {
 
   const viewOrderURL = `https://www.nutrajun.com/order/${order._id}`;
 
+  const paymentPending =
+    !order.payment?.payment_status ||
+    String(order.payment.payment_status).toLowerCase() === "pending";
+
+  const heading = paymentPending
+    ? "Order Received — Payment Pending"
+    : "Order Placed Successfully";
+
+  const intro = paymentPending
+    ? `Thank you for shopping with us! Your order <strong>#${order.orderID}</strong> is <strong style="color:#d9534f;">Pending Payment</strong>. Please complete payment so we can process your order.`
+    : `Thank you for shopping with us! Your order <strong>#${order.orderID}</strong> has been placed successfully.`;
+
+  const paymentLabel = paymentPending
+    ? `<p style="font-size:16px;"><strong>Payment Status:</strong> <span style="color:#d9534f;">Pending</span></p>`
+    : `<p style="font-size:16px;"><strong>Payment Status:</strong> <span style="color:#0f8a29;">${order.payment.payment_status}</span></p>`;
+
+  const subject = paymentPending
+    ? `Payment Pending - ${order.orderID}`
+    : `Order Placed - ${order.orderID}`;
+
   const html = `
   <div style="font-family:Arial, sans-serif; max-width:650px; margin:auto; padding:20px; background:#ffffff; border-radius:8px; border:1px solid #eee;">
     
-    <h2 style="text-align:center; color:#222;">Order Placed Successfully</h2>
+    <h2 style="text-align:center; color:#222;">${heading}</h2>
     <p style="font-size:15px; color:#444;">Hi <strong>${order.customer_details.name}</strong>,</p>
-    <p style="font-size:14px; color:#444;">Thank you for shopping with us! Your order <strong>#${order.orderID}</strong> has been placed and is currently <strong style="color:#d9534f;">Pending Payment</strong>.</p>
+    <p style="font-size:14px; color:#444;">${intro}</p>
     
     <hr style="margin:20px 0; border:none; border-top:1px solid #eee;">
 
@@ -68,7 +87,7 @@ const sendPlacedOrderMail = async ({ email, order }) => {
 
     <hr style="margin:20px 0; border:none; border-top:1px solid #eee;">
 
-    <p style="font-size:16px;"><strong>Payment Status:</strong> <span style="color:#d9534f;">Pending</span></p>
+    ${paymentLabel}
 
     <div style="text-align:center; margin-top:25px;">
       <a href="${viewOrderURL}" 
@@ -84,7 +103,7 @@ const sendPlacedOrderMail = async ({ email, order }) => {
   </div>
   `;
 
-  await sendEmail.ORDEREmail(email, `Order Placed - ${order.orderID}`, html);
+  await sendEmail.ORDEREmail(email, subject, html);
 };
 
 const sendPaymentStatusMail = async ({ email, name, order }) => {
@@ -128,11 +147,81 @@ const sendPaymentStatusMail = async ({ email, name, order }) => {
     <p style="margin-top:20px;">Thank you for shopping with us!</p>
   </div>`;
 
-  await sendEmail({
-    to: email,
-    subject: `Payment Successful - Order ${order.orderID}`,
-    html,
-  });
+  await sendEmail.ORDEREmail(
+    email,
+    `Payment Successful - Order ${order.orderID}`,
+    html
+  );
 };
 
-module.exports = { sendCustomEmail, sendPlacedOrderMail, sendPaymentStatusMail };
+const sendOrderAcceptedMail = async ({ email, order }) => {
+  const name = order.customer_details?.name || "Customer";
+  const tid = order.shipment?.tracking_Id;
+  const partner = order.shipment?.delivery_partner;
+  const viewOrderURL = `https://www.nutrajun.com/order/${order._id}`;
+
+  const trackingBlock =
+    tid || partner
+      ? `
+    <div style="padding:15px;background:#eef6ff;border-left:5px solid #3A6AFF;margin:15px 0;">
+      <p style="margin:0 0 8px;"><b>Shipment update</b></p>
+      ${partner ? `<p style="margin:4px 0;"><b>Courier / Partner:</b> ${partner}</p>` : ""}
+      ${tid ? `<p style="margin:4px 0;"><b>Tracking ID:</b> ${tid}</p>` : ""}
+    </div>`
+      : `
+    <p style="font-size:14px; color:#444;">We are preparing your order. Tracking details will be shared by email once your package is dispatched.</p>`;
+
+  const html = `
+  <div style="font-family:Arial, sans-serif; max-width:650px; margin:auto; padding:20px; background:#ffffff; border-radius:8px; border:1px solid #eee;">
+    <h2 style="color:#0f8a29;">Your Order Has Been Accepted</h2>
+    <p style="font-size:15px; color:#444;">Hi <strong>${name}</strong>,</p>
+    <p style="font-size:14px; color:#444;">Great news — your order <strong>#${order.orderID}</strong> has been <strong>accepted</strong> and will be processed shortly.</p>
+    ${trackingBlock}
+    <div style="text-align:center; margin-top:25px;">
+      <a href="${viewOrderURL}" style="background:#0f8a29; color:white; padding:12px 20px; border-radius:6px; text-decoration:none; font-size:16px;">View Order</a>
+    </div>
+    <p style="margin-top:30px; font-size:12px; color:#888; text-align:center;">© ${new Date().getFullYear()} Nutrajun</p>
+  </div>`;
+
+  await sendEmail.ORDEREmail(
+    email,
+    `Order Accepted - ${order.orderID}`,
+    html
+  );
+};
+
+const sendShipmentTrackingMail = async ({ email, order }) => {
+  const name = order.customer_details?.name || "Customer";
+  const tid = order.shipment?.tracking_Id;
+  const partner = order.shipment?.delivery_partner;
+  const viewOrderURL = `https://www.nutrajun.com/order/${order._id}`;
+
+  const html = `
+  <div style="font-family:Arial, sans-serif; max-width:650px; margin:auto; padding:20px; background:#ffffff; border-radius:8px; border:1px solid #eee;">
+    <h2 style="color:#1a56db;">Tracking Details for Order #${order.orderID}</h2>
+    <p style="font-size:15px; color:#444;">Hi <strong>${name}</strong>,</p>
+    <p style="font-size:14px; color:#444;">Your shipment has been updated.</p>
+    <div style="padding:15px;background:#eef6ff;border-left:5px solid #3A6AFF;margin:15px 0;">
+      ${partner ? `<p><b>Courier / Partner:</b> ${partner}</p>` : ""}
+      ${tid ? `<p><b>Tracking ID:</b> ${tid}</p>` : ""}
+      <p><b>Shipment status:</b> ${order.shipment?.shipment_status || "—"}</p>
+    </div>
+    <div style="text-align:center; margin-top:25px;">
+      <a href="${viewOrderURL}" style="background:#3A6AFF; color:white; padding:12px 20px; border-radius:6px; text-decoration:none; font-size:16px;">View Order</a>
+    </div>
+  </div>`;
+
+  await sendEmail.ORDEREmail(
+    email,
+    `Tracking update - ${order.orderID}`,
+    html
+  );
+};
+
+module.exports = {
+  sendCustomEmail,
+  sendPlacedOrderMail,
+  sendPaymentStatusMail,
+  sendOrderAcceptedMail,
+  sendShipmentTrackingMail,
+};
