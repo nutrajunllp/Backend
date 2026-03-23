@@ -79,24 +79,59 @@ exports.getSingleContact = async (req, res, next) => {
   }
 };
 
+const normalizeContactIds = (req) => {
+  const { contactIds, contactId, ids } = req.body || {};
+
+  if (Array.isArray(contactIds)) return contactIds;
+  if (Array.isArray(ids)) return ids;
+
+  if (typeof contactIds === "string" && contactIds.trim()) {
+    return contactIds
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+  }
+
+  if (typeof ids === "string" && ids.trim()) {
+    return ids
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+  }
+
+  if (typeof contactId === "string" && contactId.trim()) {
+    return [contactId.trim()];
+  }
+
+  if (typeof req.query?.contactIds === "string" && req.query.contactIds.trim()) {
+    return req.query.contactIds
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
 exports.deleteMultipleContacts = async (req, res, next) => {
   try {
-    const { contactIds } = req.body; 
+    const normalizedIds = normalizeContactIds(req);
 
-    if (!Array.isArray(contactIds) || contactIds.length === 0) {
+    if (!normalizedIds.length) {
       return next(
         new ErrorHandler(
-          "contactIds must be a non-empty array.",
+          "Provide at least one contact id in contactIds (array) or contactId (string).",
           StatusCodes.BAD_REQUEST
         )
       );
     }
 
-    await Contact.deleteMany({ _id: { $in: contactIds } });
+    const result = await Contact.deleteMany({ _id: { $in: normalizedIds } });
 
     res.status(StatusCodes.OK).json({
       success: true,
       message: "Selected contacts deleted successfully.",
+      deletedCount: result.deletedCount || 0,
     });
   } catch (error) {
     next(
