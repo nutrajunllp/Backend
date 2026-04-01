@@ -1,7 +1,33 @@
 const Cart = require("../../models/cartModel");
 const Product = require("../../models/productModel");
+const Offer = require("../../models/offerModel");
 const { StatusCodes } = require("http-status-codes");
 const ErrorHandler = require("../../middleware/errorHandler");
+
+// Helper: calculate discounted price based on active offer
+const getActiveDiscountedPrice = async (productId, websitePrice) => {
+  const now = new Date();
+  const offer = await Offer.findOne({
+    product: productId,
+    status: 1,
+    start_date: { $lte: now },
+    end_date: { $gte: now },
+  }).sort({ priority: -1, createdAt: -1 });
+
+  if (!offer) return null;
+
+  const price = Number(websitePrice);
+  if (isNaN(price) || price <= 0) return null;
+
+  let discounted = price;
+  if (offer.discount_type === "percentage") {
+    discounted = price - (price * offer.discount_value) / 100;
+  } else if (offer.discount_type === "fixed") {
+    discounted = price - offer.discount_value;
+  }
+  
+  return Math.max(0, Math.round(discounted * 100) / 100);
+};
 
 exports.addToCart = async (req, res, next) => {
   try {
@@ -24,9 +50,16 @@ exports.addToCart = async (req, res, next) => {
       number_of_piecces: product.product_details.number_of_piecces || "",
     };
 
-    const item_price = Number(product.price?.website_price || 0);
-    const qty = Number(quantity);
+    const base_price = Number(product.price?.website_price || 0);
 
+    // Apply offer discount if active
+    const discountedPriceValue = await getActiveDiscountedPrice(product_id, base_price);
+    const discount_amount = discountedPriceValue !== null ? (base_price - discountedPriceValue) : 0;
+    const final_unit_price = base_price - discount_amount;
+
+    console.log(`CART ADD: Product=${product_id}, Base=${base_price}, Discount=${discount_amount}, Final=${final_unit_price}`);
+
+    const qty = Number(quantity);
     let cart = await Cart.findOne({ customer_id });
     if (!cart) {
       cart = new Cart({ customer_id, items: [] });
@@ -41,16 +74,19 @@ exports.addToCart = async (req, res, next) => {
 
     if (existingItemIndex > -1) {
       cart.items[existingItemIndex].quantity += qty;
+      cart.items[existingItemIndex].price.item_price = base_price;
+      cart.items[existingItemIndex].price.discount_amount = discount_amount;
       cart.items[existingItemIndex].price.total_price =
-        cart.items[existingItemIndex].quantity * item_price;
+        cart.items[existingItemIndex].quantity * final_unit_price;
     } else {
       cart.items.push({
         product: product_id,
         size,
         quantity: qty,
         price: {
-          item_price,
-          total_price: qty * item_price,
+          item_price: base_price,
+          discount_amount: discount_amount,
+          total_price: qty * final_unit_price,
         },
       });
     }
@@ -94,10 +130,14 @@ exports.getCart = async (req, res, next) => {
 
     let total_quantity = 0;
     let total_price = 0;
+    let total_discount = 0;
+    let subtotal_price = 0; // sum of original (base) prices
 
     cart.items.forEach((item) => {
       total_quantity += item.quantity;
-      total_price += item.price?.total_price || 0;
+      subtotal_price += (item.price?.item_price || 0) * item.quantity;
+      total_discount += (item.price?.discount_amount || 0) * item.quantity;
+      total_price += item.price?.total_price || 0; // final price to pay
     });
 
     res.status(StatusCodes.OK).json({
@@ -105,6 +145,8 @@ exports.getCart = async (req, res, next) => {
       message: "Cart retrieved successfully",
       data: cart,
       total_quantity,
+      subtotal_price,
+      total_discount,
       total_price,
     });
   } catch (error) {
@@ -157,12 +199,20 @@ exports.updateQuantity = async (req, res, next) => {
       const product = await Product.findById(product_id);
       if (!product) return next(new ErrorHandler("Product not found", 404));
 
-      const itemPrice = product?.price?.website_price || 0;
+      const basePrice = product?.price?.website_price || 0;
+      
+      // Apply offer discount if active
+      const discountedValue = await getActiveDiscountedPrice(product_id, basePrice);
+      const discount_amount = discountedValue !== null ? (basePrice - discountedValue) : 0;
+      const finalPrice = basePrice - discount_amount;
+
+      console.log(`CART UPDATE: Product=${product_id}, Base=${basePrice}, Discount=${discount_amount}, Final=${finalPrice}`);
 
       cart.items[itemIndex].quantity = quantity;
       cart.items[itemIndex].price = {
-        item_price: itemPrice,
-        total_price: itemPrice * quantity,
+        item_price: basePrice,
+        discount_amount: discount_amount,
+        total_price: finalPrice * quantity,
       };
     }
 

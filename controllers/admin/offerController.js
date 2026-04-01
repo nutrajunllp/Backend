@@ -5,6 +5,8 @@ const Offer = require("../../models/offerModel");
 const Product = require("../../models/productModel");
 const { deleteFileFromS3 } = require("../../middleware/multer-s3-upload");
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 const parseDate = (value) => {
   if (value === undefined || value === null || value === "") return undefined;
   const date = new Date(value);
@@ -13,16 +15,16 @@ const parseDate = (value) => {
 
 const normalizeStartDate = (date) => {
   if (!date) return date;
-  const normalized = new Date(date);
-  normalized.setUTCHours(0, 0, 0, 0);
-  return normalized;
+  const d = new Date(date);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
 };
 
 const normalizeEndDate = (date) => {
   if (!date) return date;
-  const normalized = new Date(date);
-  normalized.setUTCHours(23, 59, 59, 999);
-  return normalized;
+  const d = new Date(date);
+  d.setUTCHours(23, 59, 59, 999);
+  return d;
 };
 
 const validateDateRange = (startDate, endDate) => {
@@ -32,24 +34,39 @@ const validateDateRange = (startDate, endDate) => {
   return null;
 };
 
+// ─── Create Offer ─────────────────────────────────────────────────────────────
+
 module.exports.createOffer = async (req, res, next) => {
   try {
     const bannerImageFromUpload = req.file?.location;
     const {
       title,
+      text = "",
       product,
       banner_image,
+      discount_type,
+      discount_value,
       status = 1,
       priority = 0,
       show_on_home = 1,
-      start_date,
       end_date,
     } = req.body;
+    console.log("CREATE OFFER BODYS:", req.body);
+    console.log("CREATE OFFER FILE:", req.file);
 
+
+    // Required field validation
     if (!title || !product) {
-      return next(
-        new ErrorHandler("title and product are required", StatusCodes.BAD_REQUEST)
-      );
+      return next(new ErrorHandler("title and product are required", StatusCodes.BAD_REQUEST));
+    }
+    if (!discount_type || !["percentage", "fixed"].includes(discount_type)) {
+      return next(new ErrorHandler("discount_type must be 'percentage' or 'fixed'", StatusCodes.BAD_REQUEST));
+    }
+    if (discount_value === undefined || discount_value === null || discount_value === "") {
+      return next(new ErrorHandler("discount_value is required", StatusCodes.BAD_REQUEST));
+    }
+    if (!start_date || !end_date) {
+      return next(new ErrorHandler("start_date and end_date are required", StatusCodes.BAD_REQUEST));
     }
 
     if (!mongoose.Types.ObjectId.isValid(product)) {
@@ -63,28 +80,29 @@ module.exports.createOffer = async (req, res, next) => {
 
     const parsedStartDate = parseDate(start_date);
     const parsedEndDate = parseDate(end_date);
-
     if (parsedStartDate === null || parsedEndDate === null) {
       return next(new ErrorHandler("Invalid date format", StatusCodes.BAD_REQUEST));
     }
 
-    const normalizedStartDate = normalizeStartDate(parsedStartDate);
-    const normalizedEndDate = normalizeEndDate(parsedEndDate);
-
-    const dateError = validateDateRange(normalizedStartDate, normalizedEndDate);
+    const normalizedStart = normalizeStartDate(parsedStartDate);
+    const normalizedEnd = normalizeEndDate(parsedEndDate);
+    const dateError = validateDateRange(normalizedStart, normalizedEnd);
     if (dateError) {
       return next(new ErrorHandler(dateError, StatusCodes.BAD_REQUEST));
     }
 
     const offer = await Offer.create({
       title,
+      text: text || "",
       product,
-      banner_image: bannerImageFromUpload || banner_image,
+      banner_image: bannerImageFromUpload || banner_image || "",
+      discount_type,
+      discount_value: Number(discount_value),
       status: Number(status),
       priority: Number(priority),
       show_on_home: Number(show_on_home),
-      start_date: normalizedStartDate,
-      end_date: normalizedEndDate,
+      start_date: normalizedStart,
+      end_date: normalizedEnd,
     });
 
     res.status(StatusCodes.CREATED).json({
@@ -93,14 +111,11 @@ module.exports.createOffer = async (req, res, next) => {
       data: offer,
     });
   } catch (error) {
-    return next(
-      new ErrorHandler(
-        error.message,
-        error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR
-      )
-    );
+    return next(new ErrorHandler(error.message, error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };
+
+// ─── Get All Offers (Admin) ───────────────────────────────────────────────────
 
 module.exports.getAllOffers = async (req, res, next) => {
   try {
@@ -114,14 +129,11 @@ module.exports.getAllOffers = async (req, res, next) => {
       data: offers,
     });
   } catch (error) {
-    return next(
-      new ErrorHandler(
-        error.message,
-        error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR
-      )
-    );
+    return next(new ErrorHandler(error.message, error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };
+
+// ─── Get Offer By ID (Admin) ──────────────────────────────────────────────────
 
 module.exports.getOfferById = async (req, res, next) => {
   try {
@@ -146,14 +158,11 @@ module.exports.getOfferById = async (req, res, next) => {
       data: offer,
     });
   } catch (error) {
-    return next(
-      new ErrorHandler(
-        error.message,
-        error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR
-      )
-    );
+    return next(new ErrorHandler(error.message, error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };
+
+// ─── Edit Offer ───────────────────────────────────────────────────────────────
 
 module.exports.editOffer = async (req, res, next) => {
   try {
@@ -161,14 +170,20 @@ module.exports.editOffer = async (req, res, next) => {
     const bannerImageFromUpload = req.file?.location;
     const {
       title,
+      text,
       product,
       banner_image,
+      discount_type,
+      discount_value,
       status,
       priority,
       show_on_home,
       start_date,
       end_date,
     } = req.body;
+
+    console.log("EDIT OFFER - INCOMING BODY:", req.body);
+    console.log("EDIT OFFER - FILE:", req.file);
 
     if (!mongoose.Types.ObjectId.isValid(offerId)) {
       return next(new ErrorHandler("Invalid offer id", StatusCodes.BAD_REQUEST));
@@ -189,23 +204,21 @@ module.exports.editOffer = async (req, res, next) => {
       }
     }
 
+    if (discount_type !== undefined && !["percentage", "fixed"].includes(discount_type)) {
+      return next(new ErrorHandler("discount_type must be 'percentage' or 'fixed'", StatusCodes.BAD_REQUEST));
+    }
+
     const parsedStartDate = start_date !== undefined ? parseDate(start_date) : undefined;
     const parsedEndDate = end_date !== undefined ? parseDate(end_date) : undefined;
-
     if (parsedStartDate === null || parsedEndDate === null) {
       return next(new ErrorHandler("Invalid date format", StatusCodes.BAD_REQUEST));
     }
 
-    const normalizedStartDate =
-      parsedStartDate !== undefined ? normalizeStartDate(parsedStartDate) : undefined;
-    const normalizedEndDate =
-      parsedEndDate !== undefined ? normalizeEndDate(parsedEndDate) : undefined;
+    const normalizedStart = parsedStartDate !== undefined ? normalizeStartDate(parsedStartDate) : undefined;
+    const normalizedEnd = parsedEndDate !== undefined ? normalizeEndDate(parsedEndDate) : undefined;
 
-    const startForValidation =
-      normalizedStartDate !== undefined ? normalizedStartDate : existingOffer.start_date;
-    const endForValidation =
-      normalizedEndDate !== undefined ? normalizedEndDate : existingOffer.end_date;
-
+    const startForValidation = normalizedStart !== undefined ? normalizedStart : existingOffer.start_date;
+    const endForValidation = normalizedEnd !== undefined ? normalizedEnd : existingOffer.end_date;
     const dateError = validateDateRange(startForValidation, endForValidation);
     if (dateError) {
       return next(new ErrorHandler(dateError, StatusCodes.BAD_REQUEST));
@@ -213,7 +226,10 @@ module.exports.editOffer = async (req, res, next) => {
 
     const updatedData = {};
     if (title !== undefined) updatedData.title = title;
+    if (text !== undefined) updatedData.text = text;
     if (product !== undefined) updatedData.product = product;
+    if (discount_type !== undefined) updatedData.discount_type = discount_type;
+    if (discount_value !== undefined) updatedData.discount_value = Number(discount_value);
     if (banner_image !== undefined) updatedData.banner_image = banner_image;
     if (bannerImageFromUpload) {
       if (existingOffer.banner_image) {
@@ -224,8 +240,8 @@ module.exports.editOffer = async (req, res, next) => {
     if (status !== undefined) updatedData.status = Number(status);
     if (priority !== undefined) updatedData.priority = Number(priority);
     if (show_on_home !== undefined) updatedData.show_on_home = Number(show_on_home);
-    if (normalizedStartDate !== undefined) updatedData.start_date = normalizedStartDate;
-    if (normalizedEndDate !== undefined) updatedData.end_date = normalizedEndDate;
+    if (normalizedStart !== undefined) updatedData.start_date = normalizedStart;
+    if (normalizedEnd !== undefined) updatedData.end_date = normalizedEnd;
 
     const updatedOffer = await Offer.findByIdAndUpdate(offerId, updatedData, {
       new: true,
@@ -238,14 +254,11 @@ module.exports.editOffer = async (req, res, next) => {
       data: updatedOffer,
     });
   } catch (error) {
-    return next(
-      new ErrorHandler(
-        error.message,
-        error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR
-      )
-    );
+    return next(new ErrorHandler(error.message, error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };
+
+// ─── Delete Offer ─────────────────────────────────────────────────────────────
 
 module.exports.deleteOffer = async (req, res, next) => {
   try {
@@ -260,6 +273,7 @@ module.exports.deleteOffer = async (req, res, next) => {
       return next(new ErrorHandler("Offer not found", StatusCodes.NOT_FOUND));
     }
 
+    // Delete banner image from S3 if it exists
     if (deletedOffer.banner_image) {
       await deleteFileFromS3(deletedOffer.banner_image);
     }
@@ -270,14 +284,11 @@ module.exports.deleteOffer = async (req, res, next) => {
       data: deletedOffer,
     });
   } catch (error) {
-    return next(
-      new ErrorHandler(
-        error.message,
-        error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR
-      )
-    );
+    return next(new ErrorHandler(error.message, error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };
+
+// ─── Delete Offer Banner Image ──────────────────────────────────────────────
 
 module.exports.deleteOfferBannerImage = async (req, res, next) => {
   try {
@@ -306,11 +317,6 @@ module.exports.deleteOfferBannerImage = async (req, res, next) => {
       data: offer,
     });
   } catch (error) {
-    return next(
-      new ErrorHandler(
-        error.message,
-        error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR
-      )
-    );
+    return next(new ErrorHandler(error.message, error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };

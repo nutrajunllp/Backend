@@ -18,8 +18,9 @@ const cartSchema = new mongoose.Schema({
         number_of_piecces: { type: String },
       },
       price: {
-        item_price: { type: Number },
-        total_price: { type: Number },
+        item_price: { type: Number },      // Base website price
+        discount_amount: { type: Number, default: 0 }, // Amount deducted via offer
+        total_price: { type: Number },      // (item_price - discount_amount) * quantity
       },
       quantity: {
         type: Number,

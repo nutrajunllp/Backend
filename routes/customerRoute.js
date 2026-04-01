@@ -37,6 +37,7 @@ router.get("/customer/product/one/:id", customerProductController.getSingleProdu
 
 //Offer
 router.get("/customer/offer/home", offerCustomerController.getHomeOffers);
+router.get("/customer/offer/product/:productId", offerCustomerController.getOfferForProduct);
 
 //Category
 router.get("/customer/category/all", customerCategoryController.getAllCategories)
