@@ -6,6 +6,7 @@ const crypto = require("crypto");
 const Product = require("../../models/productModel");
 const { sendPlacedOrderMail, sendPaymentStatusMail } = require("../emailController");
 const Coupon = require("../../models/couponModel");
+const { getActiveDiscountedPrice } = require("../../utils/offerHelper");
 
 module.exports.placeOrder = async (req, res, next) => {
   try {
@@ -50,20 +51,20 @@ module.exports.placeOrder = async (req, res, next) => {
         return next(new ErrorHandler("Product not found", StatusCodes.NOT_FOUND));
       }
 
-      const websitePrice = product.price?.website_price || 0;
-      const discountPercentage = product.price?.discounted_percentage || 0;
-      const perProductShipping = product.price?.shipping_charge || 0;
+      const websitePrice = Number(product.price?.website_price || 0);
+      const perProductShipping = Number(product.price?.shipping_charge || 0);
 
-      const item_price = websitePrice;
-      const qty = it.quantity || 1;
+      // 1. Get dynamic offer discount (replaces old discounted_percentage)
+      const discountedVal = await getActiveDiscountedPrice(it.product, websitePrice);
+      const discount_per_unit = discountedVal !== null ? (websitePrice - discountedVal) : 0;
+      const final_item_unit_price = websitePrice - discount_per_unit;
 
-      const item_discount = (item_price * discountPercentage) / 100;
-      discount_amount += item_discount * qty;
+      const qty = Number(it.quantity || 1);
 
-      const item_total = item_price * qty;
-      product_total += item_total;
-
-      shipping_charge += perProductShipping;
+      // Keep track of base (item_price) and total savings (discount_amount)
+      discount_amount += discount_per_unit * qty;
+      product_total += websitePrice * qty;
+      shipping_charge += perProductShipping * qty;
 
       populatedItems.push({
         product: it.product,
@@ -72,8 +73,9 @@ module.exports.placeOrder = async (req, res, next) => {
         name: product.name,
         image_url: product.main_image,
         price: {
-          item_price,
-          total_price: item_total,
+          item_price: websitePrice,
+          total_price: final_item_unit_price * qty,
+          discount_amount: discount_per_unit, // Capture for order review
         },
         quantity: qty,
       });
@@ -91,8 +93,10 @@ module.exports.placeOrder = async (req, res, next) => {
       });
 
       if (couponDetails && couponDetails.percentage) {
+        // Calculate coupon discount on the price after offers
+        const net_total = product_total - discount_amount;
         coupon_discount_amount =
-          Number(((product_total * couponDetails.percentage) / 100).toFixed(2));
+          Number(((net_total * couponDetails.percentage) / 100).toFixed(2));
       }
     }
 

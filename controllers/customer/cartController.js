@@ -3,31 +3,8 @@ const Product = require("../../models/productModel");
 const Offer = require("../../models/offerModel");
 const { StatusCodes } = require("http-status-codes");
 const ErrorHandler = require("../../middleware/errorHandler");
+const { getActiveDiscountedPrice } = require("../../utils/offerHelper");
 
-// Helper: calculate discounted price based on active offer
-const getActiveDiscountedPrice = async (productId, websitePrice) => {
-  const now = new Date();
-  const offer = await Offer.findOne({
-    product: productId,
-    status: 1,
-    start_date: { $lte: now },
-    end_date: { $gte: now },
-  }).sort({ priority: -1, createdAt: -1 });
-
-  if (!offer) return null;
-
-  const price = Number(websitePrice);
-  if (isNaN(price) || price <= 0) return null;
-
-  let discounted = price;
-  if (offer.discount_type === "percentage") {
-    discounted = price - (price * offer.discount_value) / 100;
-  } else if (offer.discount_type === "fixed") {
-    discounted = price - offer.discount_value;
-  }
-  
-  return Math.max(0, Math.round(discounted * 100) / 100);
-};
 
 exports.addToCart = async (req, res, next) => {
   try {
