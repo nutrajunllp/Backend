@@ -49,6 +49,7 @@ module.exports.createOffer = async (req, res, next) => {
       status = 1,
       priority = 0,
       show_on_home = 1,
+      start_date,
       end_date,
     } = req.body;
     console.log("CREATE OFFER BODYS:", req.body);
