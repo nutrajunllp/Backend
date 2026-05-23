@@ -49,6 +49,9 @@ router.put("/admin/product/edit/:productId", protectRoute, allowAccess(["admin"]
 router.delete("/admin/product/delete-images/:productId", protectRoute, allowAccess(["admin"]), adminProductController.deleteProductImages)
 router.delete("/admin/product/delete/:productId", protectRoute, allowAccess(["admin"]), adminProductController.deleteProduct)
 router.delete("/admin/product/review/:productId/:reviewId", protectRoute, allowAccess(["admin"]), adminProductController.deleteReview);
+router.get("/admin/review/all", protectRoute, allowAccess(["admin"]), adminProductController.getAllReviews);
+router.get("/admin/review/:productId/:reviewId", protectRoute, allowAccess(["admin"]), adminProductController.getReviewById);
+router.patch("/admin/review/visibility/:productId/:reviewId", protectRoute, allowAccess(["admin"]), adminProductController.updateReviewVisibility);
 // router.delete("/admin/product/deletes", protectRoute, allowAccess(["admin"]), adminProductController.deleteMultipleProducts)
 
 //Category

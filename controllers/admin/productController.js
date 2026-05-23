@@ -431,3 +431,173 @@ module.exports.deleteReview = async (req, res, next) => {
     );
   }
 };
+
+module.exports.getAllReviews = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page || req.query.page_no, 10) || 1;
+    const perPage = parseInt(req.query.perPage || req.query.items_per_page, 10) || 10;
+    const skip = (page - 1) * perPage;
+
+    const productMatch = {};
+    if (req.query.search && req.query.search.trim() !== "") {
+      const searchTerm = req.query.search.trim();
+      productMatch.$or = [
+        { name: { $regex: searchTerm, $options: "i" } },
+        { sku: { $regex: searchTerm, $options: "i" } },
+      ];
+    }
+    if (req.query.status !== undefined && req.query.status !== null && req.query.status !== "") {
+      const numericStatus = parseInt(req.query.status, 10);
+      if (!Number.isNaN(numericStatus)) {
+        productMatch.status = numericStatus;
+      }
+    }
+
+    const pipeline = [];
+    if (Object.keys(productMatch).length > 0) {
+      pipeline.push({ $match: productMatch });
+    }
+
+    pipeline.push(
+      { $unwind: "$reviews" },
+      {
+        $project: {
+          productId: "$_id",
+          product: {
+            _id: "$_id",
+            name: "$name",
+            title: "$title",
+            main_image: "$main_image",
+            sku: "$sku",
+            status: "$status",
+          },
+          review: "$reviews",
+        },
+      }
+    );
+
+    const reviewMatch = {};
+    if (req.query.visible !== undefined && req.query.visible !== null && req.query.visible !== "") {
+      const visible = parseInt(req.query.visible, 10);
+      if (!Number.isNaN(visible)) {
+        reviewMatch["review.visible"] = visible;
+      }
+    }
+    if (Object.keys(reviewMatch).length > 0) {
+      pipeline.push({ $match: reviewMatch });
+    }
+
+    pipeline.push({ $sort: { "review.created_at": -1, "review._id": -1 } });
+
+    const facetPipeline = [
+      ...pipeline,
+      {
+        $facet: {
+          data: [{ $skip: skip }, { $limit: perPage }],
+          meta: [{ $count: "total_items" }],
+        },
+      },
+    ];
+
+    const result = await Product.aggregate(facetPipeline);
+    const facet = result?.[0] || {};
+    const rows = facet?.data || [];
+    const totalItems = facet?.meta?.[0]?.total_items || 0;
+
+    const data = rows.map((item) => ({
+      ...item.review,
+      _id: item.review?._id,
+      reviewId: item.review?._id,
+      productId: item.productId,
+      product: item.product,
+      customer: item.review?.user_detail || null,
+      customerName: item.review?.user_detail?.name || "",
+      email: item.review?.user_detail?.email || "",
+      createdAt: item.review?.created_at || null,
+    }));
+
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Reviews retrieved successfully",
+      data,
+      pagination: {
+        total_items: totalItems,
+        total_pages: Math.ceil(totalItems / perPage) || 1,
+        current_page_item: data.length,
+        page_no: page,
+        items_per_page: perPage,
+      },
+    });
+  } catch (error) {
+    return next(new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
+  }
+};
+
+module.exports.getReviewById = async (req, res, next) => {
+  try {
+    const { productId, reviewId } = req.params;
+    const product = await Product.findById(productId).select("name title main_image sku status reviews");
+    if (!product) return next(new ErrorHandler("Product not found", StatusCodes.NOT_FOUND));
+
+    const review = (product.reviews || []).find((r) => r?._id?.toString() === reviewId);
+    if (!review) return next(new ErrorHandler("Review not found", StatusCodes.NOT_FOUND));
+
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Review retrieved successfully",
+      data: {
+        ...review.toObject(),
+        _id: review._id,
+        reviewId: review._id,
+        productId: product._id,
+        product: {
+          _id: product._id,
+          name: product.name,
+          title: product.title,
+          main_image: product.main_image,
+          sku: product.sku,
+          status: product.status,
+        },
+        customer: review.user_detail || null,
+        customerName: review?.user_detail?.name || "",
+        email: review?.user_detail?.email || "",
+        createdAt: review?.created_at || null,
+      },
+    });
+  } catch (error) {
+    return next(new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
+  }
+};
+
+module.exports.updateReviewVisibility = async (req, res, next) => {
+  try {
+    const { productId, reviewId } = req.params;
+    let { visible, hidden } = req.body || {};
+
+    if (visible === undefined) {
+      if (hidden === undefined) {
+        return next(new ErrorHandler("visible or hidden value is required", StatusCodes.BAD_REQUEST));
+      }
+      visible = Number(hidden) === 1 || hidden === true ? 0 : 1;
+    }
+
+    const normalizedVisible = Number(visible) === 1 || visible === true ? 1 : 0;
+
+    const product = await Product.findOneAndUpdate(
+      { _id: productId, "reviews._id": reviewId },
+      { $set: { "reviews.$.visible": normalizedVisible } },
+      { new: true }
+    );
+
+    if (!product) {
+      return next(new ErrorHandler("Product or review not found", StatusCodes.NOT_FOUND));
+    }
+
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      message: `Review ${normalizedVisible === 1 ? "visible" : "hidden"} successfully`,
+    });
+  } catch (error) {
+    return next(new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
+  }
+};
