@@ -102,6 +102,7 @@ module.exports.getAllProductsCustomer = async (req, res, next) => {
       minPrice,
       maxPrice,
       qty,
+      search,
       status = 1,
       page,
       perPage,
@@ -163,6 +164,16 @@ module.exports.getAllProductsCustomer = async (req, res, next) => {
         filter["price.website_price"].$gte = Number(minPrice);
       if (maxPrice != null)
         filter["price.website_price"].$lte = Number(maxPrice);
+    }
+
+    if (search && String(search).trim()) {
+      const searchText = String(search).trim();
+      filter.$or = [
+        { name: { $regex: searchText, $options: "i" } },
+        { title: { $regex: searchText, $options: "i" } },
+        { description: { $regex: searchText, $options: "i" } },
+        { sku: { $regex: searchText, $options: "i" } },
+      ];
     }
 
     filter.status = Number(status);
