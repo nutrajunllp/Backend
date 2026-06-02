@@ -118,6 +118,7 @@ const productSchema = new mongoose.Schema({
         name: { type: String, required: true },
         email: { type: String },
         mobile_number: { type: String },
+        country: { type: String },
       },
       rating: { type: Number, min: 1, max: 5, required: true },
       comment: { type: String, required: true },
