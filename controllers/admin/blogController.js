@@ -3,9 +3,27 @@ const ErrorHandler = require("../../middleware/errorHandler");
 const BlogModel = require("../../models/blogModel");
 const { deleteFileFromS3 } = require("../../middleware/multer-s3-upload");
 
+const parseAnchorTags = (rawValue) => {
+  if (!rawValue) return [];
+
+  try {
+    const parsed = typeof rawValue === "string" ? JSON.parse(rawValue) : rawValue;
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map((item) => ({
+        label: (item?.label || "").trim(),
+        url: (item?.url || "").trim(),
+      }))
+      .filter((item) => item.label && item.url);
+  } catch (error) {
+    return [];
+  }
+};
+
 exports.createBlog = async (req, res, next) => {
   try {
-    const { main_title, content, status } = req.body;
+    const { main_title, content, status, anchor_tags } = req.body;
 
     const parsedContent = JSON.parse(content || "[]");
 
@@ -36,6 +54,7 @@ exports.createBlog = async (req, res, next) => {
       main_video: mainVideo,
       content: finalContent,
       status,
+      anchor_tags: parseAnchorTags(anchor_tags),
     });
 
     res.status(201).json({
@@ -90,7 +109,7 @@ module.exports.updateBlog = async (req, res, next) => {
       return next(new ErrorHandler("Blog not found", StatusCodes.NOT_FOUND));
     }
 
-    const { main_title, content, status, main_image_removed, main_video_removed } = req.body;
+    const { main_title, content, status, main_image_removed, main_video_removed, anchor_tags } = req.body;
     const files = req.files || [];
 
     let parsedContent = [];
@@ -172,6 +191,9 @@ module.exports.updateBlog = async (req, res, next) => {
     blog.main_video = mainVideo;
     blog.content = updatedContent;
     blog.status = status || blog.status;
+    if (anchor_tags !== undefined) {
+      blog.anchor_tags = parseAnchorTags(anchor_tags);
+    }
 
     await blog.save();
 

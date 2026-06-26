@@ -276,6 +276,14 @@ module.exports.getAllProducts = async (req, res, next) => {
       ];
     }
 
+    // Product type filter: 0 = main selling products, 1 = freeze-dried / inquiry products
+    if (req.query.productType !== undefined && req.query.productType !== null && req.query.productType !== "") {
+      const productType = parseInt(req.query.productType, 10);
+      if (productType === 0 || productType === 1) {
+        filter.inquiry = productType;
+      }
+    }
+
     const [products, totalProductsCount] = await Promise.all([
       Product.find(filter)
         .sort({ createdAt: -1, _id: -1 })  // Added _id to ensure consistent sorting

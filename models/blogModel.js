@@ -26,6 +26,12 @@ const BlogSchema = new mongoose.Schema(
       enum: ["draft", "published"],
       default: "draft",
     },
+    anchor_tags: [
+      {
+        label: { type: String, trim: true },
+        url: { type: String, trim: true },
+      },
+    ],
   },
   { timestamps: true }
 );
