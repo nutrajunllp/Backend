@@ -2,6 +2,7 @@ const { StatusCodes } = require("http-status-codes");
 const ErrorHandler = require("../../middleware/errorHandler");
 const Customer = require("../../models/customerModel");
 const blogModel = require("../../models/blogModel");
+const { sanitizeBlogForResponse } = require("../../utils/blogContentSanitizer");
 
 // Get customer data by ID
 module.exports.getCustomerData = async (req, res, next) => {
@@ -81,7 +82,7 @@ module.exports.getBlogs = async (req, res, next) => {
     res.status(StatusCodes.OK).json({
       success: true,
       count: blogs.length,
-      data: blogs,
+      data: blogs.map(sanitizeBlogForResponse),
     });
   } catch (error) {
     return next(new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
@@ -100,7 +101,7 @@ module.exports.getBlog = async (req, res, next) => {
 
     res.status(StatusCodes.OK).json({
       success: true,
-      data: blog,
+      data: sanitizeBlogForResponse(blog),
     });
   } catch (error) {
     return next(new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR));

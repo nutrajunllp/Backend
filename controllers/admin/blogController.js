@@ -2,6 +2,10 @@ const { StatusCodes } = require("http-status-codes");
 const ErrorHandler = require("../../middleware/errorHandler");
 const BlogModel = require("../../models/blogModel");
 const { deleteFileFromS3 } = require("../../middleware/multer-s3-upload");
+const {
+  sanitizeBlogContent,
+  sanitizeBlogForResponse,
+} = require("../../utils/blogContentSanitizer");
 
 const parseAnchorTags = (rawValue) => {
   if (!rawValue) return [];
@@ -33,7 +37,7 @@ exports.createBlog = async (req, res, next) => {
     const mainVideoFile = files.find((f) => f.fieldname === "main_video");
     const mainVideo = mainVideoFile ? mainVideoFile.location : null;
 
-    const finalContent = parsedContent.map((item, index) => {
+    const finalContent = sanitizeBlogContent(parsedContent).map((item, index) => {
       const contentImageFile = files.find(
         (f) => f.fieldname === `content[${index}].contentImages`
       );
@@ -60,7 +64,7 @@ exports.createBlog = async (req, res, next) => {
     res.status(201).json({
       success: true,
       message: "Blog created successfully",
-      data: newBlog,
+      data: sanitizeBlogForResponse(newBlog),
     });
   } catch (error) {
     next(error);
@@ -74,7 +78,7 @@ module.exports.getBlogs = async (req, res, next) => {
     res.status(StatusCodes.OK).json({
       success: true,
       count: blogs.length,
-      data: blogs,
+      data: blogs.map(sanitizeBlogForResponse),
     });
   } catch (error) {
     return next(new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
@@ -93,7 +97,7 @@ module.exports.getBlog = async (req, res, next) => {
 
     res.status(StatusCodes.OK).json({
       success: true,
-      data: blog,
+      data: sanitizeBlogForResponse(blog),
     });
   } catch (error) {
     return next(new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
@@ -147,7 +151,7 @@ module.exports.updateBlog = async (req, res, next) => {
     // Collect files to delete when replaced
     const filesToDelete = [];
     
-    const updatedContent = parsedContent.map((item, index) => {
+    const updatedContent = sanitizeBlogContent(parsedContent).map((item, index) => {
       const newImageFile = files.find(
         (f) => f.fieldname === `content[${index}].contentImages`
       );
@@ -176,7 +180,7 @@ module.exports.updateBlog = async (req, res, next) => {
 
       return {
         title: item.title || blog.content[index]?.title,
-        description: item.description || blog.content[index]?.description,
+        description: item.description,
         image: finalImage,
         video: finalVideo,
       };
@@ -200,7 +204,7 @@ module.exports.updateBlog = async (req, res, next) => {
     res.status(StatusCodes.OK).json({
       success: true,
       message: "Blog updated successfully",
-      data: blog,
+      data: sanitizeBlogForResponse(blog),
     });
   } catch (error) {
     return next(
@@ -336,4 +340,3 @@ module.exports.deleteBlog = async (req, res, next) => {
     );
   }
 };
-
