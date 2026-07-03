@@ -3,6 +3,10 @@ const ErrorHandler = require("../../middleware/errorHandler");
 const Product = require("../../models/productModel");
 const Category = require("../../models/categoryModel");
 const { deleteFileFromS3 } = require("../../middleware/multer-s3-upload");
+const {
+  sanitizeProductForResponse,
+  sanitizeProductPayload,
+} = require("../../utils/productContentSanitizer");
 
 function parseNestedForm(body) {
   const parsed = {};
@@ -69,7 +73,7 @@ module.exports.createProduct = async (req, res, next) => {
       return next(new ErrorHandler("Main image is required.", StatusCodes.BAD_REQUEST));
     }
 
-    const parsedBody = parseNestedForm(req.body);
+    const parsedBody = sanitizeProductPayload(parseNestedForm(req.body));
 
     const newProduct = new Product({
       ...parsedBody,
@@ -83,7 +87,7 @@ module.exports.createProduct = async (req, res, next) => {
     res.status(StatusCodes.CREATED).json({
       success: true,
       message: "Product created successfully",
-      data: newProduct,
+      data: sanitizeProductForResponse(newProduct),
     });
 
   } catch (error) {
@@ -102,7 +106,7 @@ module.exports.editProduct = async (req, res, next) => {
       );
     }
 
-    const parsedBody = parseNestedForm(req.body);
+    const parsedBody = sanitizeProductPayload(parseNestedForm(req.body));
 
     const { main_image, images, videos } = req.files || {};
 
@@ -206,7 +210,7 @@ module.exports.editProduct = async (req, res, next) => {
     res.status(StatusCodes.OK).json({
       success: true,
       message: "Product updated successfully",
-      data: updatedProduct,
+      data: sanitizeProductForResponse(updatedProduct),
     });
   } catch (error) {
     console.error("Error updating product:", error);
@@ -233,7 +237,7 @@ module.exports.getProductById = async (req, res, next) => {
     res.status(StatusCodes.OK).json({
       success: true,
       message: "Product retrieved successfully",
-      data: product,
+      data: sanitizeProductForResponse(product),
     });
   } catch (error) {
     return next(
@@ -295,7 +299,7 @@ module.exports.getAllProducts = async (req, res, next) => {
     res.status(StatusCodes.OK).json({
       success: true,
       message: "Products retrieved successfully",
-      data: products,
+      data: products.map(sanitizeProductForResponse),
       pagination: {
         total_items: totalProductsCount,
         total_pages: Math.ceil(totalProductsCount / perPage),

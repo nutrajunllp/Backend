@@ -4,6 +4,7 @@ const Product = require("../../models/productModel");
 const { default: mongoose } = require("mongoose");
 const User = require("../../models/adminModel");
 const Customer = require("../../models/customerModel");
+const { sanitizeProductForResponse } = require("../../utils/productContentSanitizer");
 
 module.exports.getProductsCustomerHome = async (req, res, next) => {
   try {
@@ -14,7 +15,7 @@ module.exports.getProductsCustomerHome = async (req, res, next) => {
       code: StatusCodes.OK,
       success: true,
       message: "Products retrieved successfully",
-      data: products,
+      data: products.map(sanitizeProductForResponse),
     });
   } catch (error) {
     return next(
@@ -47,7 +48,7 @@ module.exports.searchProductsCustomer = async (req, res, next) => {
       code: StatusCodes.OK,
       success: true,
       message: "Search results retrieved successfully",
-      data: products,
+      data: products.map(sanitizeProductForResponse),
     });
   } catch (error) {
     return next(
@@ -78,7 +79,7 @@ module.exports.getSingleProductCustomer = async (req, res, next) => {
       code: StatusCodes.OK,
       success: true,
       message: "Product retrieved successfully",
-      data: product,
+      data: sanitizeProductForResponse(product),
     });
   } catch (error) {
     return next(
@@ -211,7 +212,7 @@ module.exports.getAllProductsCustomer = async (req, res, next) => {
       code: StatusCodes.OK,
       success: true,
       message: "Product retrieved successfully",
-      data: products,
+      data: products.map(sanitizeProductForResponse),
       pagination: {
         total_items: totalCount,
         total_pages: Math.ceil(totalCount / normalizedItemsPerPage),

@@ -61,6 +61,12 @@ const productSchema = new mongoose.Schema({
     amazon: { type: String },
     flipkart: { type: String },
   },
+  anchor_tags: [
+    {
+      label: { type: String, trim: true },
+      url: { type: String, trim: true },
+    },
+  ],
   inquiry: {
     type: Number, enum: [0, 1], default: 0
   },
