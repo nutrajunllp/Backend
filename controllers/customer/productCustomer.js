@@ -9,7 +9,7 @@ const { sanitizeProductForResponse } = require("../../utils/productContentSaniti
 module.exports.getProductsCustomerHome = async (req, res, next) => {
   try {
     const visibilityFilter = req.query.visibility_home || 1;
-    const products = await Product.find({ visibility_home: visibilityFilter }).sort({ createdAt: -1 });
+    const products = await Product.find({ visibility_home: visibilityFilter, status: 1 }).sort({ createdAt: -1 });
 
     return res.status(StatusCodes.OK).json({
       code: StatusCodes.OK,
@@ -37,6 +37,7 @@ module.exports.searchProductsCustomer = async (req, res, next) => {
     }
 
     const products = await Product.find({
+      status: 1,
       $or: [
         { name: { $regex: query, $options: "i" } },
         { title: { $regex: query, $options: "i" } },
@@ -66,9 +67,9 @@ module.exports.getSingleProductCustomer = async (req, res, next) => {
 
     let product;
     if (mongoose.Types.ObjectId.isValid(id)) {
-      product = await Product.findById(id);
+      product = await Product.findOne({ _id: id, status: 1 });
     } else {
-      product = await Product.findOne({ sku: id });
+      product = await Product.findOne({ sku: id, status: 1 });
     }
 
     if (!product) {
