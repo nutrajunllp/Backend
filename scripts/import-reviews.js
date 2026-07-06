@@ -19,8 +19,15 @@ const normalizeKey = (value) =>
 
 const normalizeText = (value) => String(value || "").trim().toLowerCase();
 
-const escapeRegex = (value) =>
-  String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const normalizeProductName = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/^nutrajun\s+(premium\s+)?/i, "")
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\bslices\b/, "slice")
+    .replace(/\bcubes\b/, "cube");
 
 const slugify = (value) =>
   String(value || "customer")
@@ -117,17 +124,46 @@ const resolveColumns = (worksheet) => {
 
 const readCell = (row, colNumber) => String(row.getCell(colNumber).text || "").trim();
 
-const findProduct = async (productName) => {
+const stripProductForm = (value) =>
+  normalizeProductName(value)
+    .replace(/\s+(cube|cubes|slice|slices|powder|flakes|flake)\s*$/, "")
+    .trim();
+
+const buildProductLookup = (products) => {
+  const lookup = new Map();
+  const baseLookup = new Map();
+
+  products.forEach((product) => {
+    [product.name, product.title, product.sku]
+      .filter(Boolean)
+      .forEach((value) => {
+        lookup.set(normalizeProductName(value), product);
+
+        const baseName = stripProductForm(value);
+        if (!baseLookup.has(baseName)) {
+          baseLookup.set(baseName, []);
+        }
+
+        const candidates = baseLookup.get(baseName);
+        if (!candidates.some((item) => item._id.equals(product._id))) {
+          candidates.push(product);
+        }
+      });
+  });
+
+  return { lookup, baseLookup };
+};
+
+const findProduct = (productName, productLookup) => {
   if (!productName) return null;
 
-  const exactNameRegex = new RegExp(`^${escapeRegex(productName)}$`, "i");
-  return Product.findOne({
-    $or: [
-      { name: { $regex: exactNameRegex } },
-      { title: { $regex: exactNameRegex } },
-      { sku: { $regex: exactNameRegex } },
-    ],
-  });
+  const normalizedName = normalizeProductName(productName);
+  const exactMatch = productLookup.lookup.get(normalizedName);
+  if (exactMatch) return exactMatch;
+
+  const baseName = stripProductForm(productName);
+  const candidates = productLookup.baseLookup.get(baseName) || [];
+  return candidates.length === 1 ? candidates[0] : null;
 };
 
 const isDuplicateReview = (product, customerName, comment) => {
@@ -164,8 +200,26 @@ const getOrCreateCustomer = async ({ customerName, country, dryRun }) => {
   return { customer, email, created: !customer && dryRun ? false : Boolean(customer && customer.isNew) };
 };
 
+const resolveInputFile = (filePath) => {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === ".ods" || ext === ".xls") {
+    const XLSX = require("xlsx");
+    const workbook = XLSX.readFile(filePath);
+    const convertedPath = path.join(
+      path.dirname(filePath),
+      `${path.basename(filePath, ext)}.import.xlsx`
+    );
+    XLSX.writeFile(workbook, convertedPath);
+    console.log(`Converted ${ext} file to: ${convertedPath}`);
+    return convertedPath;
+  }
+
+  return filePath;
+};
+
 const main = async () => {
-  const { dryRun, filePath } = parseArgs();
+  const { dryRun, filePath: inputFilePath } = parseArgs();
+  const filePath = resolveInputFile(inputFilePath);
 
   console.log(`Mode: ${dryRun ? "DRY RUN (no database writes)" : "LIVE IMPORT"}`);
   console.log(`Excel file: ${filePath}`);
@@ -175,6 +229,10 @@ const main = async () => {
   }
 
   await connectDB();
+
+  const products = await Product.find({}, "name title sku reviews");
+  const productLookup = buildProductLookup(products);
+  console.log(`Loaded ${products.length} products for name matching.`);
 
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(filePath);
@@ -247,7 +305,7 @@ const main = async () => {
         continue;
       }
 
-      const product = await findProduct(productName);
+      const product = findProduct(productName, productLookup);
       if (!product) {
         summary.skipped += 1;
         summary.skipReasons.product_not_found =
