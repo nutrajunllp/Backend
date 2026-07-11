@@ -6,6 +6,7 @@ const {
   sanitizeBlogContent,
   sanitizeBlogForResponse,
 } = require("../../utils/blogContentSanitizer");
+const { triggerFrontendDeploy } = require("../../services/deployTrigger");
 
 const parseAnchorTags = (rawValue) => {
   if (!rawValue) return [];
@@ -61,6 +62,9 @@ exports.createBlog = async (req, res, next) => {
       anchor_tags: parseAnchorTags(anchor_tags),
     });
 
+    console.log("✓ Blog Created");
+    triggerFrontendDeploy();
+
     res.status(201).json({
       success: true,
       message: "Blog created successfully",
@@ -112,6 +116,13 @@ module.exports.updateBlog = async (req, res, next) => {
     if (!blog) {
       return next(new ErrorHandler("Blog not found", StatusCodes.NOT_FOUND));
     }
+
+    const oldBlogData = {
+      main_title: blog.main_title,
+      main_image: blog.main_image,
+      status: blog.status,
+      content: JSON.parse(JSON.stringify(blog.content || []))
+    };
 
     const { main_title, content, status, main_image_removed, main_video_removed, anchor_tags } = req.body;
     const files = req.files || [];
@@ -199,7 +210,17 @@ module.exports.updateBlog = async (req, res, next) => {
       blog.anchor_tags = parseAnchorTags(anchor_tags);
     }
 
+    const isDeployNeeded = 
+      oldBlogData.main_title !== blog.main_title ||
+      oldBlogData.main_image !== blog.main_image ||
+      oldBlogData.status !== blog.status ||
+      JSON.stringify(oldBlogData.content) !== JSON.stringify(blog.content);
+
     await blog.save();
+
+    if (isDeployNeeded) {
+      triggerFrontendDeploy();
+    }
 
     res.status(StatusCodes.OK).json({
       success: true,
@@ -321,6 +342,7 @@ module.exports.deleteBlog = async (req, res, next) => {
     }
 
     await BlogModel.findByIdAndDelete(id);
+    triggerFrontendDeploy();
 
     // Delete related S3 files (if exist)
     if (fileUrls.length > 0) {

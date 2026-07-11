@@ -7,6 +7,57 @@ const {
   sanitizeProductForResponse,
   sanitizeProductPayload,
 } = require("../../utils/productContentSanitizer");
+const { triggerFrontendDeploy } = require("../../services/deployTrigger");
+
+function hasProductChangesThatRequireDeploy(oldProduct, updatedData) {
+  if (!oldProduct || !updatedData) return false;
+
+  // Check title/name
+  if (oldProduct.title !== updatedData.title) return true;
+  if (oldProduct.name !== updatedData.name) return true;
+
+  // Check slug (url_key)
+  if (oldProduct.url_key !== updatedData.url_key) return true;
+
+  // Check description
+  if (oldProduct.description !== updatedData.description) return true;
+  if (oldProduct.short_description !== updatedData.short_description) return true;
+  if (JSON.stringify(oldProduct.product_description) !== JSON.stringify(updatedData.product_description)) return true;
+
+  // Check SEO fields (meta)
+  const oldMeta = oldProduct.meta || {};
+  const newMeta = updatedData.meta || {};
+  if (oldMeta.meta_title !== newMeta.meta_title) return true;
+  if (oldMeta.meta_description !== newMeta.meta_description) return true;
+  if (oldMeta.meta_keywords !== newMeta.meta_keywords) return true;
+
+  // Check status (active/inactive)
+  if (oldProduct.status !== updatedData.status) return true;
+
+  // Check main image
+  if (oldProduct.main_image !== updatedData.main_image) return true;
+
+  // Check images array
+  const oldImages = oldProduct.images || [];
+  const newImages = updatedData.images || [];
+  if (oldImages.length !== newImages.length) return true;
+  for (let i = 0; i < oldImages.length; i++) {
+    if (oldImages[i] !== newImages[i]) return true;
+  }
+
+  // Check category
+  const oldCats = oldProduct.category || [];
+  const newCats = updatedData.category || [];
+  if (oldCats.length !== newCats.length) return true;
+  const oldCatIds = oldCats.map(c => c.toString()).sort();
+  const newCatIds = newCats.map(c => c.toString()).sort();
+  for (let i = 0; i < oldCatIds.length; i++) {
+    if (oldCatIds[i] !== newCatIds[i]) return true;
+  }
+
+  return false;
+}
+
 
 function parseNestedForm(body) {
   const parsed = {};
@@ -83,6 +134,8 @@ module.exports.createProduct = async (req, res, next) => {
     });
 
     await newProduct.save();
+    console.log("✓ Product Created");
+    triggerFrontendDeploy();
 
     res.status(StatusCodes.CREATED).json({
       success: true,
@@ -201,11 +254,17 @@ module.exports.editProduct = async (req, res, next) => {
       category: newCategoryArray,
     };
 
+    const isDeployNeeded = hasProductChangesThatRequireDeploy(product, updatedData);
+
     const updatedProduct = await Product.findByIdAndUpdate(
       productId,
       updatedData,
       { new: true }
     );
+
+    if (isDeployNeeded) {
+      triggerFrontendDeploy();
+    }
 
     res.status(StatusCodes.OK).json({
       success: true,
@@ -398,6 +457,7 @@ module.exports.deleteProduct = async (req, res, next) => {
     }
 
     await Product.findByIdAndDelete(productId);
+    triggerFrontendDeploy();
 
     res.status(StatusCodes.OK).json({
       success: true,
