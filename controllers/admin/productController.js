@@ -55,6 +55,11 @@ function hasProductChangesThatRequireDeploy(oldProduct, updatedData) {
     if (oldCatIds[i] !== newCatIds[i]) return true;
   }
 
+  // Check anchor tags
+  const oldAnchors = oldProduct.anchor_tags || [];
+  const newAnchors = updatedData.anchor_tags || [];
+  if (JSON.stringify(oldAnchors) !== JSON.stringify(newAnchors)) return true;
+
   return false;
 }
 
