@@ -77,7 +77,18 @@ module.exports.checkProfileCompletion = async (req, res, next) => {
 
 module.exports.getBlogs = async (req, res, next) => {
   try {
-    const blogs = await blogModel.find({ status: "published" }).sort({ createdAt: -1 });
+    const { search } = req.query;
+    let query = { status: "published" };
+
+    if (search) {
+      query.$or = [
+        { main_title: { $regex: search, $options: "i" } },
+        { "content.title": { $regex: search, $options: "i" } },
+        { "content.description": { $regex: search, $options: "i" } }
+      ];
+    }
+
+    const blogs = await blogModel.find(query).sort({ createdAt: -1 });
 
     res.status(StatusCodes.OK).json({
       success: true,

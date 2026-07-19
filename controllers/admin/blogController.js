@@ -77,7 +77,18 @@ exports.createBlog = async (req, res, next) => {
 
 module.exports.getBlogs = async (req, res, next) => {
   try {
-    const blogs = await BlogModel.find().sort({ createdAt: -1 });
+    const { search } = req.query;
+    let query = {};
+
+    if (search) {
+      query.$or = [
+        { main_title: { $regex: search, $options: "i" } },
+        { "content.title": { $regex: search, $options: "i" } },
+        { "content.description": { $regex: search, $options: "i" } }
+      ];
+    }
+
+    const blogs = await BlogModel.find(query).sort({ createdAt: -1 });
 
     res.status(StatusCodes.OK).json({
       success: true,
