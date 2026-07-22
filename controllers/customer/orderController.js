@@ -466,7 +466,6 @@ module.exports.validateCoupon = async (req, res, next) => {
         });
       }
     }
-
     return res.status(StatusCodes.OK).json({
       success: true,
       message: "Coupon is valid",
@@ -476,10 +475,10 @@ module.exports.validateCoupon = async (req, res, next) => {
         note: coupon.note,
         expiryDate: coupon.noExpiry ? null : coupon.expiryDate,
         noExpiry: coupon.noExpiry,
+        minimumCartQuantity: coupon.minimumCartQuantity || 0,
         _id: coupon._id
       },
-    });
-  } catch (error) {
+    });  } catch (error) {
     return next(new ErrorHandler(error.message || "Error validating coupon", StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };

@@ -12,6 +12,13 @@ module.exports.createCoupon = async (req, res, next) => {
       return next(new ErrorHandler("Coupon code already exists", StatusCodes.BAD_REQUEST));
     }
 
+    const reqMinQty = req.body.minimumCartQuantity !== undefined 
+      ? req.body.minimumCartQuantity 
+      : req.body.minimum_cart_quantity;
+    const minimumCartQuantity = (reqMinQty !== undefined && reqMinQty !== null && reqMinQty !== "")
+      ? Math.max(parseInt(reqMinQty) || 0, 0)
+      : 0;
+
     const newCoupon = new Coupon({
       code: code.toUpperCase(),
       percentage,
@@ -19,6 +26,7 @@ module.exports.createCoupon = async (req, res, next) => {
       note,
       expiryDate: noExpiry ? null : expiryDate,
       noExpiry: !!noExpiry,
+      minimumCartQuantity,
     });
 
     await newCoupon.save();
@@ -40,6 +48,14 @@ module.exports.updateCoupon = async (req, res, next) => {
 
     if (updateData.noExpiry) {
       updateData.expiryDate = null;
+    }
+
+    const reqMinQty = updateData.minimumCartQuantity !== undefined 
+      ? updateData.minimumCartQuantity 
+      : updateData.minimum_cart_quantity;
+    
+    if (reqMinQty !== undefined && reqMinQty !== null && reqMinQty !== "") {
+      updateData.minimumCartQuantity = Math.max(parseInt(reqMinQty) || 0, 0);
     }
 
     const updatedCoupon = await Coupon.findByIdAndUpdate(id, updateData, {
