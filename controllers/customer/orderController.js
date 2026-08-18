@@ -482,3 +482,31 @@ module.exports.validateCoupon = async (req, res, next) => {
     return next(new ErrorHandler(error.message || "Error validating coupon", StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };
+
+module.exports.getActiveCoupons = async (req, res, next) => {
+  try {
+    const now = new Date();
+
+    const coupons = await Coupon.find({
+      status: "active",
+      $or: [{ noExpiry: true }, { expiryDate: { $gte: now } }, { expiryDate: null }],
+    })
+      .sort({ minimumCartQuantity: 1 })
+      .select("code percentage note expiryDate noExpiry minimumCartQuantity");
+
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      data: coupons.map((coupon) => ({
+        _id: coupon._id,
+        code: coupon.code,
+        discountPercentage: coupon.percentage,
+        note: coupon.note,
+        expiryDate: coupon.noExpiry ? null : coupon.expiryDate,
+        noExpiry: coupon.noExpiry,
+        minimumCartQuantity: coupon.minimumCartQuantity || 0,
+      })),
+    });
+  } catch (error) {
+    return next(new ErrorHandler(error.message || "Error fetching coupons", StatusCodes.INTERNAL_SERVER_ERROR));
+  }
+};

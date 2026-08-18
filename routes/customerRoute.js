@@ -67,6 +67,7 @@ router.post("/customer/order/verify-payment", protectRoute, allowAccess(["custom
 router.get("/customer/order/all/:customerId", protectRoute, allowAccess(["customer"]), orderController.getCustomerAllOrders)
 router.get("/customer/order/one/:customerId/:orderId", protectRoute, allowAccess(["customer"]), orderController.getCustomerOrderById)
 router.post("/customer/coupon/validate", protectRoute, allowAccess(["customer"]), orderController.validateCoupon)
+router.get("/customer/coupon/list", protectRoute, allowAccess(["customer"]), orderController.getActiveCoupons)
 
 router.get("/payment/status/:payment_id", paymentController.checkPaymentStatus);
 
