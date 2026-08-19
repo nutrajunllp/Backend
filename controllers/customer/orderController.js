@@ -436,6 +436,7 @@ module.exports.getCustomerOrderById = async (req, res, next) => {
 module.exports.validateCoupon = async (req, res, next) => {
   try {
     const { code } = req.body;
+    const cartTotal = Number(req.body.cart_total ?? req.body.cartTotal ?? 0);
 
     if (!code || typeof code !== "string" || code.trim().length === 0) {
       return next(new ErrorHandler("Coupon code is required", StatusCodes.BAD_REQUEST));
@@ -466,16 +467,27 @@ module.exports.validateCoupon = async (req, res, next) => {
         });
       }
     }
+
+    if (coupon.minimumCartAmount > 0 && cartTotal < coupon.minimumCartAmount) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: `This coupon requires a minimum order of ₹${coupon.minimumCartAmount}`,
+      });
+    }
+
     return res.status(StatusCodes.OK).json({
       success: true,
       message: "Coupon is valid",
       data: {
         code: coupon.code,
+        discountType: coupon.discountType || "percentage",
         discountPercentage: coupon.percentage,
+        discountAmount: coupon.discountAmount || 0,
         note: coupon.note,
         expiryDate: coupon.noExpiry ? null : coupon.expiryDate,
         noExpiry: coupon.noExpiry,
         minimumCartQuantity: coupon.minimumCartQuantity || 0,
+        minimumCartAmount: coupon.minimumCartAmount || 0,
         _id: coupon._id
       },
     });  } catch (error) {
@@ -491,19 +503,22 @@ module.exports.getActiveCoupons = async (req, res, next) => {
       status: "active",
       $or: [{ noExpiry: true }, { expiryDate: { $gte: now } }, { expiryDate: null }],
     })
-      .sort({ minimumCartQuantity: 1 })
-      .select("code percentage note expiryDate noExpiry minimumCartQuantity");
+      .sort({ minimumCartAmount: 1, minimumCartQuantity: 1 })
+      .select("code percentage discountType discountAmount note expiryDate noExpiry minimumCartQuantity minimumCartAmount");
 
     return res.status(StatusCodes.OK).json({
       success: true,
       data: coupons.map((coupon) => ({
         _id: coupon._id,
         code: coupon.code,
+        discountType: coupon.discountType || "percentage",
         discountPercentage: coupon.percentage,
+        discountAmount: coupon.discountAmount || 0,
         note: coupon.note,
         expiryDate: coupon.noExpiry ? null : coupon.expiryDate,
         noExpiry: coupon.noExpiry,
         minimumCartQuantity: coupon.minimumCartQuantity || 0,
+        minimumCartAmount: coupon.minimumCartAmount || 0,
       })),
     });
   } catch (error) {

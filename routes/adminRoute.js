@@ -94,6 +94,7 @@ router.get("/admin/coupon/all", protectRoute, allowAccess(["admin"]), adminCoupo
 router.get("/admin/coupon/analytics/:id", adminCouponController.getCouponAnalyticsById)
 router.get("/admin/coupon/one/:id", protectRoute, allowAccess(["admin"]), adminCouponController.getCouponById)
 router.put("/admin/coupon/update/:id", protectRoute, allowAccess(["admin"]), adminCouponController.updateCoupon)
+router.put("/admin/coupon/edit/:id", protectRoute, allowAccess(["admin"]), adminCouponController.updateCoupon)
 router.delete("/admin/coupon/delete/:id", protectRoute, allowAccess(["admin"]), adminCouponController.deleteCoupon)
 
 //Offer

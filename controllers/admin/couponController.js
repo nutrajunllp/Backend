@@ -12,21 +12,36 @@ module.exports.createCoupon = async (req, res, next) => {
       return next(new ErrorHandler("Coupon code already exists", StatusCodes.BAD_REQUEST));
     }
 
-    const reqMinQty = req.body.minimumCartQuantity !== undefined 
-      ? req.body.minimumCartQuantity 
+    const reqMinQty = req.body.minimumCartQuantity !== undefined
+      ? req.body.minimumCartQuantity
       : req.body.minimum_cart_quantity;
     const minimumCartQuantity = (reqMinQty !== undefined && reqMinQty !== null && reqMinQty !== "")
       ? Math.max(parseInt(reqMinQty) || 0, 0)
       : 0;
 
+    const reqMinAmount = req.body.minimumCartAmount !== undefined
+      ? req.body.minimumCartAmount
+      : req.body.minimum_cart_amount;
+    const minimumCartAmount = (reqMinAmount !== undefined && reqMinAmount !== null && reqMinAmount !== "")
+      ? Math.max(parseFloat(reqMinAmount) || 0, 0)
+      : 0;
+
+    const discountType = req.body.discountType === "amount" ? "amount" : "percentage";
+    const discountAmount = discountType === "amount"
+      ? Math.max(parseFloat(req.body.discountAmount) || 0, 0)
+      : 0;
+
     const newCoupon = new Coupon({
       code: code.toUpperCase(),
-      percentage,
+      percentage: discountType === "amount" ? 0 : percentage,
+      discountType,
+      discountAmount,
       status,
       note,
       expiryDate: noExpiry ? null : expiryDate,
       noExpiry: !!noExpiry,
       minimumCartQuantity,
+      minimumCartAmount,
     });
 
     await newCoupon.save();
@@ -50,12 +65,30 @@ module.exports.updateCoupon = async (req, res, next) => {
       updateData.expiryDate = null;
     }
 
-    const reqMinQty = updateData.minimumCartQuantity !== undefined 
-      ? updateData.minimumCartQuantity 
+    const reqMinQty = updateData.minimumCartQuantity !== undefined
+      ? updateData.minimumCartQuantity
       : updateData.minimum_cart_quantity;
-    
+
     if (reqMinQty !== undefined && reqMinQty !== null && reqMinQty !== "") {
       updateData.minimumCartQuantity = Math.max(parseInt(reqMinQty) || 0, 0);
+    }
+
+    const reqMinAmount = updateData.minimumCartAmount !== undefined
+      ? updateData.minimumCartAmount
+      : updateData.minimum_cart_amount;
+
+    if (reqMinAmount !== undefined && reqMinAmount !== null && reqMinAmount !== "") {
+      updateData.minimumCartAmount = Math.max(parseFloat(reqMinAmount) || 0, 0);
+    }
+
+    if (updateData.discountType) {
+      updateData.discountType = updateData.discountType === "amount" ? "amount" : "percentage";
+      if (updateData.discountType === "amount") {
+        updateData.discountAmount = Math.max(parseFloat(updateData.discountAmount) || 0, 0);
+        updateData.percentage = 0;
+      } else {
+        updateData.discountAmount = 0;
+      }
     }
 
     const updatedCoupon = await Coupon.findByIdAndUpdate(id, updateData, {
