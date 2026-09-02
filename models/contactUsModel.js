@@ -20,6 +20,8 @@ const contactSchema = new mongoose.Schema(
     },
     number: {
       type: String,
+      required: true,
+      trim: true,
     },
     subject: {
       type: String,
