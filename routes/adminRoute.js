@@ -13,6 +13,7 @@ const adminDashboardController = require("../controllers/admin/dashboardControll
 const adminBlogController = require("../controllers/admin/blogController");
 const adminCouponController = require("../controllers/admin/couponController");
 const adminContactUsController = require("../controllers/admin/contactController");
+const adminAffiliateController = require("../controllers/admin/affiliateController");
 const galleryController = require("../controllers/admin/galleryController");
 const adminOfferController = require("../controllers/admin/offerController");
 
@@ -109,6 +110,11 @@ router.delete("/admin/offer/delete/:offerId", protectRoute, allowAccess(["admin"
 router.get("/admin/contact/all", protectRoute, allowAccess(["admin"]), adminContactUsController.getAllContacts);
 router.get("/admin/contact/one/:contactId", protectRoute, allowAccess(["admin"]), adminContactUsController.getSingleContact);
 router.delete("/admin/contact/delete", protectRoute, allowAccess(["admin"]), adminContactUsController.deleteMultipleContacts);
+
+// Affiliate join requests
+router.get("/admin/affiliate/all", protectRoute, allowAccess(["admin"]), adminAffiliateController.getAllAffiliates);
+router.get("/admin/affiliate/one/:affiliateId", protectRoute, allowAccess(["admin"]), adminAffiliateController.getSingleAffiliate);
+router.delete("/admin/affiliate/delete", protectRoute, allowAccess(["admin"]), adminAffiliateController.deleteMultipleAffiliates);
 
 //Gallery
 router.post("/admin/gallery/create", protectRoute, allowAccess(["admin"]), uploadGalleryFiles, galleryController.createGalleryImage);

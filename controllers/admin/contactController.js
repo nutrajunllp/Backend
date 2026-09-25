@@ -12,11 +12,19 @@ exports.createContact = async (req, res, next) => {
       );
     }
 
+    // Phone: optional leading "+", then 7-15 digits (spaces/dashes are stripped)
+    const normalizedNumber = String(number).trim().replace(/[\s-]/g, "");
+    if (!/^\+?\d{7,15}$/.test(normalizedNumber)) {
+      return next(
+        new ErrorHandler("Please enter a valid phone number (digits only).", StatusCodes.BAD_REQUEST)
+      );
+    }
+
     const contact = await Contact.create({
       first_name,
       last_name,
       email,
-      number,
+      number: normalizedNumber,
       subject,
       message,
     });

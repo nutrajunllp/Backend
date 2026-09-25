@@ -13,6 +13,7 @@ const wishlistController = require("../controllers/customer/wishlistController")
 const offerCustomerController = require("../controllers/customer/offerCustomerController");
 const Order = require("../models/orderModel");
 const { createContact } = require("../controllers/admin/contactController");
+const { createAffiliate } = require("../controllers/admin/affiliateController");
 const { getAllGalleryMainWeb } = require("../controllers/admin/galleryController");
 
 
@@ -74,6 +75,7 @@ router.get("/payment/status/:payment_id", paymentController.checkPaymentStatus);
 router.get("/blog", customerController.getBlogs)
 router.get("/blog/:id", customerController.getBlog)
 router.post("/contact/sent", createContact);
+router.post("/affiliate/join", createAffiliate);
 router.get("/gallery", getAllGalleryMainWeb);
 
 router.get("/order/invoice/:orderId", async (req, res) => {
